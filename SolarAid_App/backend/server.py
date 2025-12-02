@@ -5,6 +5,7 @@ from backend.sealion_ai.thanks_ai import generate_thankyou_message
 from backend.sealion_ai.certificate_generator import generate_certificate
 from backend.analytics import DonationAnalytics
 from backend.gemini_ai.ai_agent import DonationAIAgent
+from backend.database.supabase import supabase
 
 app = Flask(__name__)
 CORS(app)
@@ -14,6 +15,42 @@ CSV_PATH = "backend/dataset/donations.csv"
 analytics = DonationAnalytics(CSV_PATH)
 analytics.load_data()
 agent = DonationAIAgent() 
+
+@app.post("/api/login")
+def login():
+    """Login user using Supabase 'user' table"""
+    try:
+        data = request.json
+        email = data.get("email")
+        password = data.get("password")
+
+        # Query Supabase
+        result = (
+            supabase.table("user")
+            .select("*")
+            .eq("username", email)
+            .execute()
+        )
+
+        if not result.data:
+            return jsonify({"error": "User not found"}), 404
+
+        user = result.data[0]
+
+        # Check password
+        if user["User_password"] != password:
+            return jsonify({"error": "Incorrect password"}), 401
+
+        return jsonify({
+            "message": "Login successful",
+            "user_id": user["User_ID"],
+            "username": user["username"],
+            "token": "demo-token"  # You can replace with JWT later
+        })
+
+    except Exception as e:
+        print("Login error:", e)
+        return jsonify({"error": str(e)}), 500
 
 @app.get("/api/top5")
 def top5():
@@ -133,4 +170,5 @@ def get_ai_analysis(user_id):
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
+    print("Flask server running on http://127.0.0.1:5000")
     app.run(port=5000, debug=True)
