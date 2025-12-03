@@ -1,3 +1,7 @@
+// --------------------------------------
+// DONATION PAGE (FINAL FIXED VERSION)
+// --------------------------------------
+
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
@@ -21,9 +25,7 @@ async function geocode(name, state, district, area) {
 
   for (let query of queries) {
     try {
-      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-        query
-      )}`;
+      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`;
       const res = await axios.get(url);
 
       if (res.data.length > 0) {
@@ -37,12 +39,11 @@ async function geocode(name, state, district, area) {
     }
   }
 
-  return { lat: 4.2105, lon: 101.9758 }; // fallback Malaysia
+  return { lat: 4.2105, lon: 101.9758 }; // fallback: Malaysia center
 }
 
 export default function DonationPage() {
   const navigate = useNavigate();
-
   const [topFive, setTopFive] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -54,27 +55,16 @@ export default function DonationPage() {
     async function loadTop5() {
       try {
         const res = await axios.get("http://127.0.0.1:5000/api/top5");
-        let data = res.data;
-
-        if (!Array.isArray(data)) {
-          console.error("❌ Backend returned non-array:", data);
-          return;
-        }
+        const data = res.data;
 
         const enriched = await Promise.all(
           data.map(async (loc) => {
-            const coords = await geocode(
-              loc.Name,
-              loc.State,
-              loc.District,
-              loc.Area
-            );
+            const coords = await geocode(loc.Name, loc.State, loc.District, loc.Area);
             return { ...loc, latitude: coords.lat, longitude: coords.lon };
           })
         );
 
         setTopFive(enriched);
-
       } catch (err) {
         console.error("❌ Error fetching top5:", err);
       } finally {
@@ -85,14 +75,11 @@ export default function DonationPage() {
     loadTop5();
   }, []);
 
-  // LOAD USER PROFILE (AVATAR + NAME)
+  // LOAD USER PROFILE
   useEffect(() => {
     async function loadUser() {
       const uid = localStorage.getItem("user_id");
-      if (!uid) {
-        console.error("❌ No user_id in localStorage");
-        return;
-      }
+      if (!uid) return;
 
       try {
         const res = await axios.get(`http://127.0.0.1:5000/api/user-profile/${uid}`);
@@ -107,51 +94,71 @@ export default function DonationPage() {
     loadUser();
   }, []);
 
+  // HANDLE DONATE CLICK
+  const handleDonate = async (item) => {
+    const selectedAmount = parseFloat(localStorage.getItem("selectedDonationAmount") || "50");
+    const uid = localStorage.getItem("user_id");
+
+    // Store certificate data
+    localStorage.setItem(
+      "donationData",
+      JSON.stringify({
+        kwh: selectedAmount,
+        recipient_type: item.LocationType,
+        location: item.Name,
+        state: item.State,
+      })
+    );
+
+    // POST donation
+    try {
+      await fetch("http://127.0.0.1:5000/api/donate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: uid,
+          kwh: selectedAmount,
+        }),
+      });
+    } catch (err) {
+      console.error("❌ Donation API error:", err);
+    }
+
+    navigate("/donation_complete");
+  };
+
+  // RENDER UI
   return (
     <div className="min-h-screen bg-white">
 
       {/* NAVBAR */}
-      <div
-        className="
-          fixed top-0 left-0 w-full
-          bg-gradient-to-r from-[#3BA0FF] via-[#5A32FF] to-[#6C00FF]
-          backdrop-blur-md shadow-sm z-[999]
-        "
-      >
+      <div className="fixed top-0 left-0 w-full bg-gradient-to-r from-[#3BA0FF] via-[#5A32FF] to-[#6C00FF] backdrop-blur-md shadow-sm z-[999]">
         <div className="w-full py-3 px-2 grid grid-cols-3 items-center">
           
-          {/* Back Button */}
           <button
             onClick={() => navigate("/home")}
-            className="ml-[20px] px-4 py-2 rounded-full bg-black/10 text-black font-medium 
-                      backdrop-blur hover:bg-white/30 transition justify-self-start"
+            className="ml-[20px] px-4 py-2 rounded-full bg-black/10 text-black font-medium backdrop-blur hover:bg-white/30 transition"
           >
             ← Back
           </button>
 
-          {/* Center Logo */}
           <div className="flex justify-center">
             <img src="/src/assets/logo.png" alt="Logo" className="w-10 h-10" />
             <span className="text-3xl font-semibold text-black">SolarAid</span>
           </div>
 
-          {/* Right Profile */}
+          {/* Profile on right */}
           <div className="flex justify-end items-center pr-6">
             {!userLoading && myUser ? (
               <div className="flex items-center gap-3 bg-black/10 px-3 py-1 rounded-full shadow-sm">
-                <img
-                  src={myUser.User_Img}
-                  alt="avatar"
-                  className="w-10 h-10 rounded-full border border-black shadow"
-                />
-                <span className="font-semibold text-black text-lg">
-                  {myUser.User_Name}
-                </span>
+                <img src={myUser.User_Img} className="w-10 h-10 rounded-full border border-black shadow" />
+                <span className="font-semibold text-black text-lg">{myUser.User_Name}</span>
               </div>
             ) : (
               <div></div>
             )}
           </div>
+
         </div>
       </div>
 
@@ -161,24 +168,14 @@ export default function DonationPage() {
 
           {/* LEFT: MAP */}
           <div className="sticky top-28 h-[75vh]">
-            <div className="w-full h-full p-1.5 rounded-2xl bg-gradient-to-r from-[#3BA0FF] via-[#5A32FF] to-[#6C00FF] shadow-xl">
+            <div className="w-full h-full p-1.5 rounded-2xl bg-gradient-to-r from-[#3BA0FF] via-[#5A32Ff] to-[#6C00FF] shadow-xl">
               <div className="w-full h-full bg-white rounded-xl overflow-hidden shadow-lg border border-gray-200">
-                <MapContainer
-                  center={[4.2105, 101.9758]}
-                  zoom={6}
-                  style={{ width: "100%", height: "100%" }}
-                >
-                  <TileLayer
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                    attribution="© OpenStreetMap contributors"
-                  />
+
+                <MapContainer center={[4.2105, 101.9758]} zoom={6} style={{ width: "100%", height: "100%" }}>
+                  <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
                   {topFive.map((loc) => (
-                    <Marker
-                      key={loc.id}
-                      position={[loc.latitude, loc.longitude]}
-                      icon={purpleIcon}
-                    >
+                    <Marker key={loc.id} position={[loc.latitude, loc.longitude]} icon={purpleIcon}>
                       <Popup>
                         <strong>#{loc.Rank} — {loc.Name}</strong><br />
                         Type: {loc.LocationType}<br />
@@ -188,81 +185,60 @@ export default function DonationPage() {
                       </Popup>
                     </Marker>
                   ))}
+
                 </MapContainer>
+
               </div>
             </div>
           </div>
 
-          {/* RIGHT: SCROLLABLE LIST */}
-          <div className="
-            h-[75vh] overflow-y-auto rounded-2xl shadow-lg
-            bg-gradient-to-r from-[#6C00FF] via-[#5A32FF] to-[#3BA0FF]
-            border border-[#D5C4FF] p-0 relative
-          ">
+          {/* RIGHT: LIST */}
+          <div className="h-[75vh] overflow-y-auto rounded-2xl shadow-lg bg-gradient-to-r from-[#6C00FF] via-[#5A32FF] to-[#3BA0FF] border border-[#D5C4FF]">
 
-            <div className="sticky top-0 z-20 bg-gradient-to-r from-[#6C00FF] via-[#5A32FF] to-[#3BA0FF] px-6 pt-5 pb-4 border-b border-[#D5C4FF]/50">
+            <div className="sticky top-0 z-20 px-6 pt-5 pb-4 bg-gradient-to-r from-[#6C00FF] via-[#5A32FF] to-[#3BA0FF] border-b border-[#D5C4FF]/50">
               <h1 className="text-3xl font-extrabold text-white">
                 Top 5 Areas Needing Electricity Donations
               </h1>
             </div>
 
             <div className="px-6 pt-4 pb-6 space-y-6">
-              
-              {loading && (
-                <div className="text-white text-lg font-medium py-4">
-                  Fetching AI data…
-                </div>
-              )}
+
+              {loading && <div className="text-white text-lg font-medium">Fetching AI data…</div>}
 
               {!loading &&
                 topFive.map((item) => (
-                  <div
-                    key={item.id}
-                    className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm hover:shadow-md"
-                  >
-                    <div className="flex justify-between items-center">
-                      <h2 className="text-xl font-bold text-[#5A32FF]">
-                        {item.Name}
-                      </h2>
+                  <div key={item.id} className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
 
-                      <span className="px-4 py-1 bg-[#5A32FF]/15 text-[#5A32FF] text-xl rounded-full">
+                    <div className="flex justify-between items-center">
+                      <h2 className="text-xl font-bold text-[#5A32FF]">{item.Name}</h2>
+                      <span className="px-4 py-1 bg-[#5A32FF]/15 text-[#5A32FF] rounded-full text-lg">
                         {item.State}
                       </span>
                     </div>
 
-                    <p className="mt-3 text-[#5A32FF] text-xl italic">
+                    <p className="mt-3 text-[#5A32FF] text-lg italic">
                       Location Type: {item.LocationType}
                     </p>
 
-                    <p className="mt-3 text-[#5A32FF]/80 text-sm">
-                      {item.Reasoning}
-                    </p>
+                    <p className="mt-3 text-[#5A32FF]/80 text-sm">{item.Reasoning}</p>
 
                     <button
-                      onClick={() => {
-                        const selectedAmount = parseFloat(
-                          localStorage.getItem("selectedDonationAmount") || "50"
-                        );
-                        const donationData = {
-                          kwh: selectedAmount,
-                          recipient_type: item.LocationType,
-                          location: item.Name,
-                          state: item.State,
-                        };
-                        localStorage.setItem("donationData", JSON.stringify(donationData));
-                        navigate("/donation_complete");
-                      }}
+                      onClick={() => handleDonate(item)}
                       className="mt-4 w-full py-3 bg-[#6C00FF] text-white rounded-full font-semibold hover:bg-[#5A32FF] transition"
                     >
                       Donate Electricity
                     </button>
+
                   </div>
                 ))}
+
             </div>
+
           </div>
 
         </div>
       </div>
+
     </div>
   );
 }

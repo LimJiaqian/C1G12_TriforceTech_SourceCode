@@ -259,6 +259,66 @@ def get_ai_analysis(user_id):
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
     
+@app.post("/api/donate")
+def donate_energy():
+    try:
+        data = request.json
+        user_id = int(data.get("user_id"))
+        kwh = int(float(data.get("kwh", 0)))     # <<< FIXED HERE
+
+        if not user_id or kwh <= 0:
+            return jsonify({"error": "Invalid user_id or donation amount"}), 400
+
+        # 1. Read user_electricity
+        result = (
+            supabase.table("user_electricity")
+            .select("*")
+            .eq("User_ID", user_id)
+            .execute()
+        )
+
+        if not result.data:
+            return jsonify({"error": "Electricity record not found"}), 404
+
+        row = result.data[0]
+        current_monthly = int(row["Monthly_Donation"])   # ensure int
+        capacity = int(row["Electricity_Capacity"])
+
+        new_monthly = current_monthly + kwh
+        if new_monthly > capacity:
+            new_monthly = capacity
+
+        # 2. UPDATE user_electricity
+        supabase.table("user_electricity").update({
+            "Monthly_Donation": int(new_monthly)
+        }).eq("User_ID", user_id).execute()
+
+        # 3. UPDATE user total donation
+        result_user = (
+            supabase.table("user")
+            .select("Donate_Amount")
+            .eq("User_ID", user_id)
+            .single()
+            .execute()
+        )
+
+        total_prev = int(result_user.data["Donate_Amount"])
+        new_total = total_prev + kwh
+
+        supabase.table("user").update({
+            "Donate_Amount": int(new_total)
+        }).eq("User_ID", user_id).execute()
+
+        return jsonify({
+            "message": "Donation updated successfully",
+            "updated_monthly": new_monthly,
+            "updated_total": new_total
+        })
+
+    except Exception as e:
+        print("Donate API error:", e)
+        return jsonify({"error": str(e)}), 500
+    
 if __name__ == "__main__":
     print("Flask server running on http://127.0.0.1:5000")
     app.run(port=5000, debug=True)
