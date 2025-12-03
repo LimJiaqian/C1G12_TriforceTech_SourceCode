@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Zap, Leaf } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-export default function Overview({ myUser }) {
+export default function Overview({ myUser, analysis }) {
   const navigate = useNavigate();
 
   const [capacity, setCapacity] = useState(null);
@@ -140,14 +140,14 @@ export default function Overview({ myUser }) {
         {/* Slider */}
         <div className="mb-6">
           <p className="font-semibold mb-2 text-gray-800">
-            Select Donation Amount: <span className="text-[#3f4cc6ff]">{donateAmount} kWh</span>
+            Select Donation Amount: <span className="text-[#3f4cc6ff]">{analysis?.minRequired ? Number(analysis.minRequired) : donateAmount} kWh</span>
           </p>
 
           <input
             type="range"
             min={0}
             max={remaining}
-            value={donateAmount}
+            value={analysis?.minRequired ? Number(analysis.minRequired) : donateAmount}
             onChange={(e) => setDonateAmount(Number(e.target.value))}
             className="
               w-full
@@ -160,7 +160,7 @@ export default function Overview({ myUser }) {
               relative
             "
             style={{
-              background: `linear-gradient(to right, #3f4cc6ff ${(donateAmount/remaining)*100}%, #E5E7EB ${(donateAmount/remaining)*100}%)`,
+              background: `linear-gradient(to right, #3f4cc6ff ${((analysis?.minRequired ? Number(analysis.minRequired) : donateAmount)/remaining)*100}%, #E5E7EB ${(donateAmount/remaining)*100}%)`,
               borderRadius: "50px"
             }}
           />

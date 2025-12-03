@@ -14,10 +14,33 @@ export default function Dashboard() {
   const [topUsers, setTopUsers] = useState([]);
   const [myUser, setMyUser] = useState(null);
   const [personAhead, setPersonAhead] = useState(null);
+  const [analysis, setAnalysis] = useState(null);
 
   useEffect(() => {
     if (leftRef.current) setLeftHeight(leftRef.current.offsetHeight);
   }, []);
+
+    useEffect(() => {
+    async function fetchData() {
+      if (!myUser) return;
+
+      try {
+        const res = await fetch(
+          `http://127.0.0.1:5000/predict/${myUser.User_ID}`
+        );
+
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+
+        const data = await res.json();
+        setAnalysis(data);
+      } catch (err) {
+        console.error("Error fetching AI analysis data:", err);
+        setError(err.message);
+      }
+    }
+
+    fetchData();
+  }, [myUser]);
 
   useEffect(() => {
     async function fetchAll() {
@@ -111,7 +134,7 @@ export default function Dashboard() {
 
           {/* LEFT */}
           <div ref={leftRef} className="flex-1">
-            <Overview myUser={myUser}/>
+            <Overview myUser={myUser} analysis={analysis}/>
           </div>
 
           {/* RIGHT */}
@@ -126,7 +149,7 @@ export default function Dashboard() {
 
         <div style={{ marginTop: "2rem" }}>
           <div className="mb-20">
-            <SmartPrediction myUser={myUser} />
+            <SmartPrediction myUser={myUser} analysis={analysis}/>
           </div>
         </div>
       </div>

@@ -1,30 +1,7 @@
 import { useEffect, useState } from "react";
 
-export default function SmartPrediction({ myUser }) {
-  const [analysis, setAnalysis] = useState(null);
+export default function SmartPrediction({ myUser, analysis }) {
   const [error, setError] = useState(null);
-
-  useEffect(() => {
-    async function fetchData() {
-      if (!myUser) return;
-
-      try {
-        const res = await fetch(
-          `http://127.0.0.1:5000/user/${myUser.User_ID}/ai-analysis`
-        );
-
-        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-
-        const data = await res.json();
-        setAnalysis(data.ai_analysis);
-      } catch (err) {
-        console.error("Error fetching AI analysis data:", err);
-        setError(err.message);
-      }
-    }
-
-    fetchData();
-  }, [myUser]);
 
   if (!analysis) {
     return (
@@ -77,6 +54,45 @@ export default function SmartPrediction({ myUser }) {
           </div>
         </div>
 
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+          <div className="bg-[#E2D9FF] rounded-xl p-4">
+            <p className="text-gray-700 text-sm">Your Trend</p>
+            <p className="text-2xl font-bold mt-1">
+
+              {analysis?.userTrend > 0 ? (
+                <span style={{ color: "green" }}> Rising &#8599;</span>  // Rising arrow
+              ) : analysis?.userTrend < 0 ? (
+                <span style={{ color: "red" }}> Declining &#8601;</span>    // Declining arrow
+              ) : (
+                <span style={{ color: "gray" }}>Normal &#8594;</span>   // Neutral
+              )}
+            </p>
+            <p className="text-sm text-gray-600 mt-1">
+              Keep going.
+            </p>
+          </div>
+
+          <div className="bg-[#E2D9FF] rounded-xl p-4">
+            <p className="text-gray-700 text-sm">Rank Probability</p>
+            <p className="text-2xl font-bold mt-1">
+              {analysis.rankProbability} %
+            </p>
+            <p className="text-sm text-gray-600 mt-1">
+              likely you can catch up #{myUser.Rank - 1} next month
+            </p>
+          </div>
+
+          <div className="bg-[#E2D9FF] rounded-xl p-4">
+            <p className="text-gray-700 text-sm">Competitor Momentum</p>
+            <p className="text-2xl font-bold mt-1">
+              {analysis.competitorMomentum} %
+            </p>
+            <p className="text-sm text-gray-600 mt-1">
+              likely the #{myUser.Rank - 1} will donate next month
+            </p>
+          </div>
+        </div>
+
         <div className="mt-4 bg-[#EFE8FF] rounded-xl p-4 flex items-start gap-2 text-gray-700">
           <span className="text-xl">💡</span>
           <p className="text-sm">
@@ -84,6 +100,19 @@ export default function SmartPrediction({ myUser }) {
             your spot — top donors often increase contributions near month-end!
           </p>
         </div>
+        <h4 className="text-lg font-bold text-gray-900 m-4">
+          Tips
+        </h4>
+        {analysis?.tips?.map((tip, i) => (
+          <div className="mt-4 bg-[#EFE8FF] rounded-xl p-4 flex items-start gap-2 text-gray-700">
+            <p className="text-sm">
+              <span key={i}>
+                {i + 1}. {tip}
+                <br />
+              </span>
+            </p>
+          </div>
+        ))}
       </div>
     </div>
   );
