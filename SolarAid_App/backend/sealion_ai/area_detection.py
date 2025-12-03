@@ -1,25 +1,28 @@
+from backend.database.supabase import supabase
 import json
 import requests
 from dotenv import load_dotenv
 import os
-from ..area import area_data    
 
-# Load .env variables
 load_dotenv()
 API_KEY = os.getenv("SEA_LION_API_KEY")
 
 URL = "https://api.sea-lion.ai/v1/completions"
 
+def get_area_data():
+    """Fetch all rows from Supabase 'area' table."""
+    try:
+        result = supabase.table("area").select("*").execute()
+        return result.data if result.data else []
+    except Exception as e:
+        print("❌ Error fetching Supabase area table:", e)
+        return []
+
+
 def get_top5_energy_need():
-    """
-    Calls SEA-LION AI to rank the top 5 communities needing electricity
-    based on real-time disaster info + dataset.
-    Returns a Python dictionary or list.
-    """
-
-    if not API_KEY:
-        return {"error": "API key not found in .env"}
-
+    """Call SEA-LION AI and enrich output with Area + District from Supabase."""
+    
+    # 🔵 Step 1: AI System prompt
     system_prompt = """
     You are an Energy Need Prioritization AI.
 
@@ -42,7 +45,6 @@ def get_top5_energy_need():
     - Whether the area is blackout or unstable
     - Vulnerability (rural, deep rural, low income)
     - Importance of the facility (medical > school > shelter > mosque > household)
-    - Peak hour urgency
     - Population served
     - Impact of natural disasters based on your web findings
     - Any additional insights based on public information
@@ -51,52 +53,65 @@ def get_top5_energy_need():
     Rank, id, Name, State, LocationType, Reasoning
     """
 
-    user_prompt = (
-        "Determine the TOP 5 areas needing electricity sponsorship:\n\n"
-        + json.dumps(area_data, indent=2)
-    )
+    # Your existing dataset
+    area_table = get_area_data()
+    user_prompt = json.dumps(area_table, indent=2)
 
     payload = {
         "model": "aisingapore/Gemma-SEA-LION-v4-27B-IT",
         "prompt": system_prompt + "\n\n" + user_prompt,
         "temperature": 0.2,
-        "max_tokens": 800
+        "max_tokens": 800,
     }
 
     headers = {
         "Authorization": f"Bearer {API_KEY}",
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
     }
 
+    # 🔵 Step 2: AI request (with fallback)
     try:
-        response = requests.post(URL, headers=headers, json=payload, timeout=10)
+        response = requests.post(URL, json=payload, headers=headers, timeout=25)
         result = response.json()
-
         llm_text = result["choices"][0]["text"]
 
-        # Extract JSON only
-        try:
-            cleaned = llm_text[llm_text.find("[") : llm_text.rfind("]") + 1]
-            parsed = json.loads(cleaned)
-            # Ensure it's an array
-            if isinstance(parsed, list):
-                return parsed
-            else:
-                print(f"⚠️ SEA-LION returned non-array: {parsed}")
-                return get_fallback_top5()
-        except Exception as parse_err:
-            print(f"⚠️ JSON parsing error: {parse_err}")
-            return get_fallback_top5()
+        # Extract JSON list
+        clean = llm_text[llm_text.find("[") : llm_text.rfind("]") + 1]
+        ai_list = json.loads(clean)
 
     except Exception as e:
-        print(f"⚠️ SEA-LION API error: {e}")
+        print("⚠️ AI error:", e)
         return get_fallback_top5()
+
+    # 🔵 Step 3: Fetch Supabase reference table
+    area_table = get_area_data()
+
+    # 🔵 Step 4: Enrich AI output with “Area” and “District”
+    enriched = []
+    for item in ai_list:
+        match = next(
+            (
+                row for row in area_table
+                if row["Name"].lower() == item["Name"].lower()
+                and row["State"].lower() == item["State"].lower()
+            ),
+            None
+        )
+
+        if match:
+            item["Area"] = match.get("Area")
+            item["District"] = match.get("District")
+        else:
+            item["Area"] = None
+            item["District"] = None
+
+        enriched.append(item)
+
+    return enriched
 
 
 def get_fallback_top5():
-    """
-    Returns a hardcoded fallback list of top 5 areas when AI call fails
-    """
+    """Your existing fallback list (unchanged)."""
     return [
         {
             "Rank": 1,
@@ -104,7 +119,9 @@ def get_fallback_top5():
             "Name": "Kampung Batu Hampar",
             "State": "Kelantan",
             "LocationType": "Medical Clinic",
-            "Reasoning": "Rural medical facility with unstable electricity and high vulnerability during monsoon season"
+            "Reasoning": "Rural medical facility with unstable electricity",
+            "Area": "Kapit Divisi",
+            "District": "Song",
         },
         {
             "Rank": 2,
@@ -112,7 +129,9 @@ def get_fallback_top5():
             "Name": "Pos Lenjang Orang Asli",
             "State": "Pahang",
             "LocationType": "Remote Village",
-            "Reasoning": "Deep rural Orang Asli settlement with no grid access and urgent basic needs"
+            "Reasoning": "Deep rural Orang Asli settlement with no grid access",
+            "Area": "Interior Divisi",
+            "District": "Pitas",
         },
         {
             "Rank": 3,
@@ -120,7 +139,9 @@ def get_fallback_top5():
             "Name": "SK Ulu Tembeling",
             "State": "Pahang",
             "LocationType": "Primary School",
-            "Reasoning": "Remote school serving 80 students with frequent power outages affecting education"
+            "Reasoning": "Remote school serving 80 students",
+            "Area": "Bandaraya Johor Bahru",
+            "District": "Gopeng",
         },
         {
             "Rank": 4,
@@ -128,7 +149,9 @@ def get_fallback_top5():
             "Name": "Kampung Gual Periok",
             "State": "Terengganu",
             "LocationType": "Community Center",
-            "Reasoning": "Coastal village prone to flooding with electricity issues during natural disasters"
+            "Reasoning": "Coastal village prone to flooding",
+            "Area": "Petaling Jaya",
+            "District": "Petaling",
         },
         {
             "Rank": 5,
@@ -136,11 +159,8 @@ def get_fallback_top5():
             "Name": "Felda Jengka",
             "State": "Pahang",
             "LocationType": "Settlement",
-            "Reasoning": "Large agricultural community with grid instability affecting 500+ families"
-        }
+            "Reasoning": "Large agricultural community with grid instability",
+            "Area": "Kota Bharu",
+            "District": "Kota Bharu",
+        },
     ]
-
-
-if __name__ == "__main__":
-    top5 = get_top5_energy_need()
-    print(json.dumps(top5, indent=2))

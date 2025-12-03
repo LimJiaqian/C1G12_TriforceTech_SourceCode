@@ -4,70 +4,89 @@ import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
 import { useNavigate } from "react-router-dom";
 
+// MAP ICON
 const purpleIcon = new L.Icon({
-  iconUrl:
-    "https://upload.wikimedia.org/wikipedia/commons/e/ec/RedDot.svg",
+  iconUrl: "https://upload.wikimedia.org/wikipedia/commons/e/ec/RedDot.svg",
   iconSize: [18, 18],
 });
 
-async function geocode(name, state) {
-  const query = encodeURIComponent(`${name} ${state} Malaysia`);
-  const url = `https://nominatim.openstreetmap.org/search?format=json&q=${query}`;
+// ======================================================
+// SMART GEO-CODER (4 fallback strategies)
+// ======================================================
+async function geocode(name, state, district, area) {
+  const queries = [
+    `${district}, ${state}, Malaysia`,
+    `${area}, ${state}, Malaysia`,
+    `${name}, ${state}, Malaysia`,
+    `${state}, Malaysia`,
+  ];
 
-  try {
-    const res = await axios.get(url);
-    if (res.data.length === 0) return null;
+  for (let query of queries) {
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+        query
+      )}`;
+      const res = await axios.get(url);
 
-    return {
-      lat: parseFloat(res.data[0].lat),
-      lon: parseFloat(res.data[0].lon),
-    };
-  } catch (err) {
-    console.error("Geocode error:", err);
-    return null;
+      if (res.data.length > 0) {
+        return {
+          lat: parseFloat(res.data[0].lat),
+          lon: parseFloat(res.data[0].lon),
+        };
+      }
+    } catch (err) {
+      console.error("Geocode error:", err);
+    }
   }
+
+  // 🔥 If all queries fail → fallback Malaysia coordinates
+  return { lat: 4.2105, lon: 101.9758 };
 }
 
+// ======================================================
+// MAIN COMPONENT
+// ======================================================
 export default function DonationPage() {
   const navigate = useNavigate();
 
   const [topFive, setTopFive] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // ======================================================
+  // LOAD DATA FROM BACKEND
+  // ======================================================
   useEffect(() => {
     async function loadTop5() {
       try {
-        // 🔥 Fetch from Flask backend
         const res = await axios.get("http://127.0.0.1:5000/api/top5");
         let data = res.data;
 
-        console.log("🔥 Received from backend:", data);
-
-        // Check if data is an error object or invalid
         if (!Array.isArray(data)) {
-          console.error("Backend returned non-array data:", data);
-          setTopFive([]);
+          console.error("❌ Backend returned non-array:", data);
           return;
         }
 
-        // 🔵 Add coordinates to each location
+        // Enrich with location coordinates
         const enriched = await Promise.all(
           data.map(async (loc) => {
-            const coords = await geocode(loc.Name, loc.State);
+            const coords = await geocode(
+              loc.Name,
+              loc.State,
+              loc.District,
+              loc.Area
+            );
 
             return {
               ...loc,
-              latitude: coords?.lat || 2.5, // fallback center of MY
-              longitude: coords?.lon || 112.5,
+              latitude: coords.lat,
+              longitude: coords.lon,
             };
           })
         );
 
-        console.log("📌 Geocoded Locations:", enriched);
-
         setTopFive(enriched);
       } catch (err) {
-        console.error("Error fetching AI results:", err);
+        console.error("❌ Error fetching top5:", err);
       } finally {
         setLoading(false);
       }
@@ -76,134 +95,182 @@ export default function DonationPage() {
     loadTop5();
   }, []);
 
+  // ======================================================
+  // UI OUTPUT
+  // ======================================================
   return (
     <div className="min-h-screen bg-white">
+
+      {/* HEADER */}
       <div
-          className="
-            fixed top-0 left-0 w-full
-            bg-gradient-to-r from-[#3BA0FF] via-[#5A32FF] to-[#6C00FF]
-            backdrop-blur-md shadow-sm z-[999]
-          "
-        >
-          <div className="w-full py-3 px-2 grid grid-cols-3 items-center">
-            
-            {/* LEFT — Landing Page Button */}
-            <button
-              onClick={() => navigate("/home")}
-              className="ml-[20px] px-4 py-2 rounded-full bg-black/10 text-black font-medium 
-                        backdrop-blur hover:bg-white/30 transition justify-self-start"
-            >
-              ← Back
-            </button>
+        className="
+          fixed top-0 left-0 w-full
+          bg-gradient-to-r from-[#3BA0FF] via-[#5A32FF] to-[#6C00FF]
+          backdrop-blur-md shadow-sm z-[999]
+        "
+      >
+        <div className="w-full py-3 px-2 grid grid-cols-3 items-center">
+          
+          <button
+            onClick={() => navigate("/home")}
+            className="ml-[20px] px-4 py-2 rounded-full bg-black/10 text-black font-medium 
+                      backdrop-blur hover:bg-white/30 transition justify-self-start"
+          >
+            ← Back
+          </button>
 
-            {/* CENTER — SolarAid Brand */}
-            <div className="flex justify-center">
-                      <img
-                        src="/src/assets/logo.png"
-                        alt="Logo"
-                        className="w-10 h-10 drop-shadow"
-                      />
-                      <span className="text-3xl font-semibold text-black">SolarAid</span>
-                    </div>
+          <div className="flex justify-center">
+            <img src="/src/assets/logo.png" alt="Logo" className="w-10 h-10" />
+            <span className="text-3xl font-semibold text-black">SolarAid</span>
+          </div>
 
-            {/* RIGHT — Spacer to keep center perfectly centered */}
-            <div></div>
+          <div></div>
+        </div>
+      </div>
+
+      {/* MAIN WRAPPER */}
+    <div className="w-full flex justify-center bg-white">
+      <div className="w-[90%] grid grid-cols-1 md:grid-cols-[40%_60%] gap-8 pt-32 pb-12">
+
+        {/* LEFT — MAP PANEL (40%) */}
+        <div className="sticky top-28 h-[75vh]">
+
+          {/* Gradient Background Wrapper */}
+          <div className="
+            w-full 
+            h-full 
+            p-1.5 
+            rounded-2xl 
+            bg-gradient-to-r 
+            from-[#3BA0FF] 
+            via-[#5A32FF] 
+            to-[#6C00FF]
+            shadow-xl
+          ">
+
+            {/* Inner White Card (contains the map) */}
+            <div className="
+              w-full 
+              h-full 
+              bg-white 
+              rounded-xl 
+              overflow-hidden 
+              shadow-lg 
+              border border-gray-200
+            ">
+              <MapContainer
+                center={[4.2105, 101.9758]}
+                zoom={6}
+                style={{ width: "100%", height: "100%" }}
+              >
+                <TileLayer
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  attribution="© OpenStreetMap contributors"
+                />
+
+                {topFive.map((loc) => (
+                  <Marker
+                    key={loc.id}
+                    position={[loc.latitude, loc.longitude]}
+                    icon={purpleIcon}
+                  >
+                    <Popup>
+                      <strong>#{loc.Rank} — {loc.Name}</strong><br />
+                      Type: {loc.LocationType}<br />
+                      Area: {loc.Area}<br />
+                      District: {loc.District}<br />
+                      State: {loc.State}
+                    </Popup>
+                  </Marker>
+                ))}
+              </MapContainer>
+            </div>
           </div>
         </div>
 
-      <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-10 pt-28 px-6">
+        {/* RIGHT: SCROLLABLE LIST */}
+        <div className="
+          h-[75vh]
+          overflow-y-auto
+          rounded-2xl
+          shadow-lg
+          bg-gradient-to-r from-[#6C00FF] via-[#5A32FF] to-[#3BA0FF]
+          border border-[#D5C4FF]
+          p-0           /* remove default padding */
+          relative
+        ">
 
-        {/* LEFT — INTERACTIVE MAP */}
-        <div className="w-full h-[500px]">
-          <MapContainer
-            center={[2.5, 112.5]}
-            zoom={6}
-            style={{ width: "100%", height: "100%" }}
-            className="rounded-2xl shadow-lg"
-          >
-            <TileLayer
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              attribution="© OpenStreetMap contributors"
-            />
+          {/* Sticky Title */}
+          <div className="
+            sticky 
+            top-0 
+            z-20
+            bg-gradient-to-r from-[#6C00FF] via-[#5A32FF] to-[#3BA0FF]
+            px-6 
+            pt-5
+            pb-4
+            border-b border-[#D5C4FF]/50
+          ">
+            <h1 className="text-3xl font-extrabold text-white">
+              Top 5 Areas Needing Electricity Donations
+            </h1>
+          </div>
 
-            {/* 🔥 Pins for all locations */}
-            {topFive.map((loc) => (
-              <Marker
-                key={loc.id}
-                position={[loc.latitude, loc.longitude]}
-                icon={purpleIcon}
-              >
-                <Popup>
-                  <strong>#{loc.Rank} — {loc.Name}</strong>
-                  <br />
-                  State: {loc.State}
-                  <br />
-                  Type: {loc.LocationType}
-                </Popup>
-              </Marker>
-            ))}
-          </MapContainer>
-        </div>
-
-        {/* RIGHT — Donation Cards */}
-        <div className="space-y-6">
-          <h1 className="text-3xl font-bold text-[#5A32FF]">
-            Top 5 Areas Needing Electricity Donations
-          </h1>
-
-          {loading && (
-            <p className="text-gray-500">Fetching AI results…</p>
-          )}
-
-          {!loading &&
-            topFive.map((item) => (
-              <div
-                key={item.id}
-                className="border border-gray-200 rounded-xl p-5 shadow-sm hover:shadow-md transition"
-              >
-                <div className="flex items-center justify-between">
-                  <h2 className="text-2xl font-bold text-[#5A32FF]">
-                    {item.Name}
-                  </h2>
-
-                  <span className="text-sm bg-[#5A32FF]/20 text-[#5A32FF] px-3 py-1 rounded-full">
-                    {item.State}
-                  </span>
+            {/* CONTENT WRAPPER (adds spacing so cards do NOT touch sticky title) */}
+            <div className="px-6 pt-4 pb-6 space-y-6">
+              {/* LOADING STATE */}
+              {loading && (
+                <div className="text-white text-lg font-medium py-4">
+                  Fetching AI data…
                 </div>
+              )}
 
-                <p className="text-xl text-[#5A32FF] mt-2">
-                  {item.LocationType}
-                </p>
+              {/* SHOW CARDS ONLY WHEN LOADING = FALSE */}
+              {!loading &&
+                topFive.map((item) => (
+                <div
+                  key={item.id}
+                  className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm hover:shadow-md"
+                >
+                  <div className="flex justify-between items-center">
+                    <h2 className="text-xl font-bold text-[#5A32FF]">{item.Name}</h2>
 
-                <p className="mt-3 text-[#5A32FF]/80 text-sm leading-relaxed">
-                  {item.Reasoning}
-                </p>
+                    <span className="px-4 py-1 bg-[#5A32FF]/15 text-[#5A32FF] text-xl rounded-full">
+                      {item.State}
+                    </span>
+                  </div>
 
-                <button
-      onClick={() => {
-        // Get the selected amount from Overview page (or default to 50)
-        const selectedAmount = parseFloat(localStorage.getItem('selectedDonationAmount') || '50');
-        
-        // Save donation data for certificate generation
-        const donationData = {
-          kwh: selectedAmount, // Use the ACTUAL amount from the slider
-          recipient_type: item.LocationType.toLowerCase().includes('clinic') ? 'clinic' :
-                         item.LocationType.toLowerCase().includes('school') ? 'school' :
-                         item.LocationType.toLowerCase().includes('disaster') ? 'disaster' : 'home',
-          location: item.Name,
-          state: item.State
-        };
-        localStorage.setItem('donationData', JSON.stringify(donationData));
-        navigate("/donation_complete");
-      }}
-      className="mt-4 px-6 py-2 bg-[#6C00FF] text-white rounded-full font-semibold hover:bg-[#5A32FF] transition"
-    >
-      Donate Electricity
-    </button>
-              </div>
-            ))}
+                  <p className="mt-3 text-[#5A32FF] text-xl italic leading-relaxed">
+                    Location Type: {item.LocationType}
+                  </p>
+
+                  <p className="mt-3 text-[#5A32FF]/80 text-sm leading-relaxed">
+                    {item.Reasoning}
+                  </p>
+
+                  <button
+                    onClick={() => {
+                      const selectedAmount = parseFloat(
+                        localStorage.getItem("selectedDonationAmount") || "50"
+                      );
+                      const donationData = {
+                        kwh: selectedAmount,
+                        recipient_type: item.LocationType,
+                        location: item.Name,
+                        state: item.State,
+                      };
+                      localStorage.setItem("donationData", JSON.stringify(donationData));
+                      navigate("/donation_complete");
+                    }}
+                    className="mt-4 w-full py-3 bg-[#6C00FF] text-white rounded-full font-semibold hover:bg-[#5A32FF] transition"
+                  >
+                    Donate Electricity
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
-
       </div>
     </div>
   );
