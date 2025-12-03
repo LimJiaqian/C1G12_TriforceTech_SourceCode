@@ -86,7 +86,8 @@ def api_certificate():
             "image_url": result["image_base64"],
             "impact_metric": result["impact_metric"],
             "co2_kg": result["co2_kg"],
-            "ai_text": result["ai_text"]
+            "ai_text": result["ai_text"],
+            "certificate_id": result["certificate_id"] 
         })
         
     except Exception as e:

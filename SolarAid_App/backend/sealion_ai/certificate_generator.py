@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 from io import BytesIO
 from PIL import Image, ImageDraw, ImageFont
 import base64
+import random
 
 load_dotenv()
 API_KEY = os.getenv("SEA_LION_API_KEY2")
@@ -101,7 +102,7 @@ Write a caption celebrating this contribution to the community."""
         return "Your gift of light brings hope and power to those who need it most."
 
 
-def create_certificate_image(kwh, impact_metric, co2_kg, ai_text):
+def create_certificate_image(kwh, impact_metric, co2_kg, ai_text, certificate_id):
     """
     Create a certificate image with the provided data
     
@@ -110,6 +111,7 @@ def create_certificate_image(kwh, impact_metric, co2_kg, ai_text):
         impact_metric (str): Human impact metric with units
         co2_kg (float): CO2 saved in kg
         ai_text (str): AI-generated caption
+        certificate_id (str): Unique certificate identifier
         
     Returns:
         BytesIO: Image buffer containing the certificate
@@ -142,6 +144,7 @@ def create_certificate_image(kwh, impact_metric, co2_kg, ai_text):
         font_co2 = ImageFont.load_default()
         font_caption = ImageFont.load_default()
         font_footer = ImageFont.load_default()
+    
     
     # 1. Header - "JARIAH CERTIFICATE"
     header_text = "JARIAH CERTIFICATE"
@@ -241,7 +244,9 @@ def create_certificate_image(kwh, impact_metric, co2_kg, ai_text):
     footer_text = "VERIFIED BY HYCO PLATFORM"
     footer_bbox = draw.textbbox((0, 0), footer_text, font=font_footer)
     footer_width = footer_bbox[2] - footer_bbox[0]
-    draw.text(((width - footer_width) / 2, 1780), footer_text, fill='#6B7280', font=font_footer)  # gray-500
+    footer_y = height - 120  # safe margin from bottom
+    draw.text(((width - footer_width) / 2, footer_y), footer_text, fill='#6B7280', font=font_footer)  # gray-500
+
     
     # Convert to bytes
     img_buffer = BytesIO()
@@ -286,9 +291,12 @@ def generate_certificate(kwh, recipient_type='home'):
     
     # Generate AI caption
     ai_text = generate_certificate_caption(kwh, specific_stat, context, impact['co2_kg'])
+
+    # Generate unique certificate ID
+    certificate_id = f"CERT-{random.randint(100000, 999999)}"
     
     # Create certificate image
-    img_buffer = create_certificate_image(kwh, specific_stat, impact['co2_kg'], ai_text)
+    img_buffer = create_certificate_image(kwh, specific_stat, impact['co2_kg'], ai_text, certificate_id)
     
     # Convert to base64 for web display
     img_base64 = base64.b64encode(img_buffer.getvalue()).decode('utf-8')
@@ -297,5 +305,6 @@ def generate_certificate(kwh, recipient_type='home'):
         "image_base64": f"data:image/png;base64,{img_base64}",
         "impact_metric": specific_stat,
         "co2_kg": impact['co2_kg'],
-        "ai_text": ai_text
+        "ai_text": ai_text,
+        "certificate_id": certificate_id 
     }

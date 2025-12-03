@@ -35,7 +35,8 @@ export default function Overview({ myUser }) {
   }
 
   return (
-    <div className="bg-white shadow-md rounded-xl p-6 w-full">
+    <div className="space-y-8">
+      <div className="bg-white shadow-md rounded-xl p-6 w-full">
 
       {/* Title */}
       <div className="flex items-center gap-2 mb-4">
@@ -141,6 +142,29 @@ export default function Overview({ myUser }) {
         <Zap />
         Donate Now
       </button>
+    </div>
+
+    {/* --- Separate Recent Donation / History Box --- */}
+    <div className="bg-white shadow-md rounded-xl p-6 w-full mt-8">
+      <div className="flex justify-between items-center mb-4">
+        <h4 className="font-bold text-lg text-gray-800">Recent Donation</h4>
+        <button
+          onClick={() => navigate("/donation_history", { state: { myUser } })}
+          className="text-blue-600 font-semibold hover:underline text-sm"
+        >
+          View Full History
+        </button>
+      </div>
+
+      {/* Recent donation line */}
+      <p className="text-gray-700 text-sm">
+        {myUser.recentDonation
+          ? `Your last donation: ${myUser.recentDonation.amount} kWh on ${new Date(
+              myUser.recentDonation.date
+            ).toLocaleDateString()}`
+          : "You haven't made any donations yet."}
+      </p>
+    </div>
     </div>
   );
 }

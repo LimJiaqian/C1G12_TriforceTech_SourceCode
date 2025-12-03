@@ -17,6 +17,7 @@ export default function PremiumCertificate({ finalAmount, recipientType = 'home'
   const [isLoading, setIsLoading] = useState(true);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
+  const [certificateId, setCertificateId] = useState("");
 
   useEffect(() => {
     async function fetchCertificateData() {
@@ -29,11 +30,14 @@ export default function PremiumCertificate({ finalAmount, recipientType = 'home'
         
         const data = await res.json();
         
+        console.log("CERTIFICATE API RESPONSE:", data);  
+        
         setImpact({
           metric: data.impact_metric,
           co2: data.co2_kg
         });
         setAiText(data.ai_text || "Your generous gift brings cahaya and harapan to our community.");
+        setCertificateId(data.certificate_id);
       } catch (err) {
         console.error('Certificate fetch error:', err);
         setAiText("Your generous contribution lights up lives and spreads warmth to those in need.");
@@ -41,6 +45,7 @@ export default function PremiumCertificate({ finalAmount, recipientType = 'home'
           metric: `${Math.round(kwh / 0.18)} Hours of Study Light`,
           co2: (kwh * 0.76).toFixed(2)
         });
+        setCertificateId(`LOCAL-${Date.now()}`);
       } finally {
         setIsLoading(false);
       }
@@ -275,6 +280,10 @@ export default function PremiumCertificate({ finalAmount, recipientType = 'home'
             <div className="text-right">
               <p className="text-xs uppercase text-[#D4AF37] font-bold">Date</p>
               <p className="text-slate-800">{new Date().toLocaleDateString()}</p>
+
+              {/* Certificate ID */}
+              <p className="text-xs uppercase text-[#D4AF37] font-bold mt-2">Certificate ID</p>
+              <p className="text-slate-800">{certificateId}</p>
             </div>
           </div>
 
