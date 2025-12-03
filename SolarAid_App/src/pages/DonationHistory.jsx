@@ -9,6 +9,9 @@ export default function DonationHistory() {
   const [loading, setLoading] = useState(true);
   const [selectedCertificate, setSelectedCertificate] = useState(null); // <-- NEW
 
+  const [userProfile, setUserProfile] = useState(null);
+  const [userLoading, setUserLoading] = useState(true);
+
   const userId = localStorage.getItem("user_id");
 
   // --- SAFELY FORMAT SUPABASE TIMESTAMP ---
@@ -34,6 +37,32 @@ export default function DonationHistory() {
     }
 
     loadTransactions();
+  }, [userId]);
+
+  // --- LOAD USER PROFILE FOR AVATAR + NAME ---
+  useEffect(() => {
+    async function loadUserProfile() {
+      try {
+        if (!userId) return;
+
+        const res = await fetch(
+          `http://127.0.0.1:5000/api/user-profile/${userId}`
+        );
+        const data = await res.json();
+
+        if (res.ok) {
+          setUserProfile(data);
+        } else {
+          console.error("User profile error:", data);
+        }
+      } catch (err) {
+        console.error("User profile fetch error:", err);
+      } finally {
+        setUserLoading(false);
+      }
+    }
+
+    loadUserProfile();
   }, [userId]);
 
   // --- VIEW CERTIFICATE HANDLER ---
@@ -66,7 +95,23 @@ export default function DonationHistory() {
             <span className="text-3xl font-semibold text-black">SolarAid</span>
           </div>
 
-          <div></div>
+          {/* Profile on right */}
+          <div className="flex justify-end items-center pr-6">
+            {!userLoading && userProfile ? (
+              <div className="flex items-center gap-3 bg-black/10 px-3 py-1 rounded-full shadow-sm">
+                <img
+                  src={userProfile.User_Img}
+                  className="w-10 h-10 rounded-full border border-black shadow"
+                  alt={userProfile.User_Name}
+                />
+                <span className="font-semibold text-black text-lg">
+                  {userProfile.User_Name}
+                </span>
+              </div>
+            ) : (
+              <div />
+            )}
+          </div>
         </div>
       </div>
 
