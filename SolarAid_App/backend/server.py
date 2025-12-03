@@ -100,41 +100,130 @@ def api_certificate():
 # ========================================
 # PREDICTION FEATURE ENDPOINTS
 # ========================================
-@app.route("/leaderboard", methods=["GET"])
-def get_leaderboard():
+@app.get("/api/leaderboard")
+def leaderboard():
     try:
-        leaderboard_df = analytics.get_latest_leaderboard()
-        if leaderboard_df.empty:
-            return jsonify({"error": "No donation data available"}), 404
-        return jsonify({
-            "year": int(analytics.latest_year),
-            "leaderboard": leaderboard_df.to_dict('records')
-        })
+        result = (
+            supabase.table("user")
+            .select("User_ID, User_Name, User_Img, Donate_Amount")
+            .order("Donate_Amount", desc=True)
+            .execute()
+        )
+
+        users = result.data
+        
+        # Add ranking
+        for idx, u in enumerate(users):
+            u["Rank"] = idx + 1
+
+        return jsonify({"leaderboard": users})
+
     except Exception as e:
-        print(f"Error in get_leaderboard: {str(e)}")  # Add logging
         return jsonify({"error": str(e)}), 500
 
-@app.route("/user/<int:user_id>/position", methods=["GET"])
+@app.get("/user/<int:user_id>/position")
 def get_user_position(user_id):
     try:
-        position = analytics.get_user_position(user_id)
-        if position is None:
-            return jsonify({"error": "No data available"}), 404
-        return jsonify(position)
-    except ValueError as e:
-        return jsonify({"error": f"Invalid user_id: {str(e)}"}), 400
+        # Get all users sorted by donation
+        result = (
+            supabase.table("user")
+            .select("User_ID, User_Name, User_Img, Donate_Amount")
+            .order("Donate_Amount", desc=True)
+            .execute()
+        )
+
+        users = result.data
+
+        # Add Rank
+        for i, u in enumerate(users):
+            u["Rank"] = i + 1
+
+        # Find the current user
+        myUser = next((u for u in users if u["User_ID"] == user_id), None)
+        if not myUser:
+            return jsonify({"error": "User not found"}), 404
+
+        # Compute how much more kWh needed to reach top 5
+        top5_cutoff = (
+            users[4]["Donate_Amount"] if len(users) >= 5 else 0
+        )
+        myUser["kWh_needed_for_top_5"] = max(0, top5_cutoff - myUser["Donate_Amount"])
+
+        return jsonify(myUser)
+
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@app.route("/user/<int:user_id>/previous", methods=["GET"])
+@app.get("/user/<int:user_id>/previous")
 def get_previous_ranker(user_id):
     try:
-        prev_user = analytics.get_previous_ranker(user_id)
-        if prev_user is None:
+        result = (
+            supabase.table("user")
+            .select("User_ID, User_Name, User_Img, Donate_Amount")
+            .order("Donate_Amount", desc=True)
+            .execute()
+        )
+
+        users = result.data
+        for i, u in enumerate(users):
+            u["Rank"] = i + 1
+
+        # find current rank
+        my_index = next((i for i,u in enumerate(users) if u["User_ID"] == user_id), None)
+        if my_index is None or my_index == 0:
             return jsonify({"message": "No one ahead"}), 404
-        return jsonify(prev_user)
+
+        previous_user = users[my_index - 1]
+        return jsonify(previous_user)
+
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@app.get("/api/user-electricity/<int:user_id>")
+def get_user_electricity(user_id):
+    try:
+        result = (
+            supabase.table("user_electricity")
+            .select("*")
+            .eq("User_ID", user_id)
+            .execute()
+        )
+
+        if not result.data:
+            return jsonify({"error": "No electricity record found"}), 404
+
+        row = result.data[0]
+
+        return jsonify({
+            "capacity": row["Electricity_Capacity"],
+            "donated": row["Monthly_Donation"],
+            "remaining": row["Electricity_Capacity"] - row["Monthly_Donation"]
+        })
+
+    except Exception as e:
+        print("Error:", e)
+        return jsonify({"error": str(e)}), 500
+
+@app.get("/api/user-profile/<int:user_id>")
+def get_user_profile(user_id):
+    try:
+        result = (
+            supabase.table("user")
+            .select("User_ID, User_Name, User_Img")
+            .eq("User_ID", user_id)
+            .execute()
+        )
+
+        if not result.data:
+            return jsonify({"error": "User not found"}), 404
+
+        return jsonify(result.data[0])
+
+    except Exception as e:
+        print("User profile error:", e)
+        return jsonify({"error": str(e)}), 500
+
+
 
 @app.route("/user/<int:user_id>/ai-analysis", methods=["GET"])
 def get_ai_analysis(user_id):
@@ -169,7 +258,7 @@ def get_ai_analysis(user_id):
         import traceback
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
-
+    
 if __name__ == "__main__":
     print("Flask server running on http://127.0.0.1:5000")
     app.run(port=5000, debug=True)

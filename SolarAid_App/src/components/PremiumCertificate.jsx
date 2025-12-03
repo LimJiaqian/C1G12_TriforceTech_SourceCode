@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import html2canvas from 'html2canvas';
+import { useNavigate } from "react-router-dom";
 
 /**
  * Premium Sadaqah Jariah Certificate Component
@@ -11,6 +12,7 @@ import html2canvas from 'html2canvas';
  * - onClose: callback to close the certificate viewer
  */
 export default function PremiumCertificate({ finalAmount, recipientType = 'home', onClose }) {
+  const navigate = useNavigate();
   const kwh = finalAmount || 50;
   const [impact, setImpact] = useState(null);
   const [aiText, setAiText] = useState("Weaving your impact story...");
@@ -292,14 +294,15 @@ export default function PremiumCertificate({ finalAmount, recipientType = 'home'
       </div>
 
       {/* Close Button (Floating) */}
-      {onClose && (
-        <button
-          onClick={onClose}
-          className="fixed top-8 right-8 w-12 h-12 bg-white rounded-full shadow-lg flex items-center justify-center text-slate-600 hover:bg-slate-100 transition z-50"
-        >
-          ✕
-        </button>
-      )}
+      <button
+        onClick={() => navigate("/home")}
+        className="fixed top-8 right-8 w-20 h-20 bg-white rounded-full shadow-lg 
+                  flex items-center justify-center text-slate-600 
+                  hover:bg-slate-100 transition z-50 text-3xl font-bold"
+      >
+        ✕
+      </button>
+
 
     </div>
   );

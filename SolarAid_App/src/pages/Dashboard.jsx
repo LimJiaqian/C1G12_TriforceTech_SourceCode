@@ -21,11 +21,16 @@ export default function Dashboard() {
 
   useEffect(() => {
     async function fetchAll() {
-      const MY_USER_ID = 1002;
+
+      const MY_USER_ID = parseInt(localStorage.getItem("user_id"));
+      if (!MY_USER_ID) {
+        console.error("❌ Missing user_id in localStorage!");
+        return;
+      }
 
       try {
         // 1. Leaderboard
-        let res = await fetch("http://127.0.0.1:5000/leaderboard");
+        let res = await fetch(`http://127.0.0.1:5000/api/leaderboard?user_id=${MY_USER_ID}`);
         let data = await res.json();
         setTopUsers(data.leaderboard);
 
@@ -65,7 +70,7 @@ export default function Dashboard() {
             className="ml-[20px] px-4 py-2 rounded-full bg-black/10 text-black font-medium 
                         backdrop-blur hover:bg-white/30 transition justify-self-start"
           >
-            ← Landing Page
+            ← Log Out
           </button>
 
           {/* CENTER — SolarAid Brand */}
@@ -78,9 +83,23 @@ export default function Dashboard() {
             <span className="text-3xl font-semibold text-black">SolarAid</span>
           </div>
 
-          {/* RIGHT — Spacer to keep center perfectly centered */}
-          <div></div>
+          {/* RIGHT — User Info */}
+          <div className="flex justify-end items-center pr-6">
 
+            {myUser && (
+              <div className="flex items-center gap-3 bg-black/10 px-3 py-1 rounded-full shadow-sm">
+                <img
+                  src={myUser.User_Img}
+                  alt="avatar"
+                  className="w-10 h-10 rounded-full border border-black shadow"
+                />
+                <span className="font-semibold text-black text-lg">
+                  {myUser.User_Name}
+                </span>
+              </div>
+            )}
+
+          </div>
         </div>
       </div>
 
@@ -117,7 +136,7 @@ export default function Dashboard() {
         <button
           onClick={() => setShowChat(true)}
           className="fixed bottom-6 right-6 bg-[#6C00FF] text-white p-4 rounded-full shadow-xl
-                    hover:bg-[#5A32FF] transition flex items-center justify-center z-[99999]"
+                    hover:bg-[#5A32FF] transition flex items-center justify-center gap-2 z-[99999]"
         >
           <MessageCircle size={22} />
           <span>Chat Now</span>

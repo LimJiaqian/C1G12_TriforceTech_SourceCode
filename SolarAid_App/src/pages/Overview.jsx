@@ -4,29 +4,50 @@ import { useNavigate } from "react-router-dom";
 
 export default function Overview({ myUser }) {
   const navigate = useNavigate();
-  const electricityCapacity = 500;
-  const maxRemaining = 320;
-  const [totalDonated, setTotalDonated] = useState(0);
 
+  const [capacity, setCapacity] = useState(null);
+  const [monthlyDonation, setMonthlyDonation] = useState(null);
+  const [remaining, setRemaining] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  // Load electricity data from backend API
   useEffect(() => {
-    if (myUser) {
-      setTotalDonated(myUser.total_Donation_Amount_kWh);
+    async function loadElectricity() {
+      if (!myUser) return;
+
+      const res = await fetch(
+        `http://127.0.0.1:5000/api/user-electricity/${myUser.User_ID}`
+      );
+      const data = await res.json();
+
+      if (res.ok) {
+        setCapacity(data.capacity);
+        setMonthlyDonation(data.donated);
+        setRemaining(data.remaining); // <-- capacity - donation (CALCULATED)
+      } else {
+        console.error("Backend error:", data);
+      }
+
+      setLoading(false);
     }
+
+    loadElectricity();
   }, [myUser]);
 
-  const [donateAmount, setDonateAmount] = useState(50);
-
+  // Impact calculator
   const calcImpact = (kwh) => {
-    const hours = Math.round((kwh / electricityCapacity) * 262);
-    const co2 = Math.round((kwh / electricityCapacity) * 700.8);
+    if (!capacity) return { hours: 0, co2: 0, trees: 0 };
+
+    const hours = Math.round((kwh / capacity) * 262);
+    const co2 = Math.round((kwh / capacity) * 700.8);
     const trees = Math.round(co2 / 21);
+
     return { hours, co2, trees };
   };
 
-  const impact = calcImpact(donateAmount);
-  const totalImpact = calcImpact(totalDonated);
+  const [donateAmount, setDonateAmount] = useState(50);
 
-  if (!myUser) {
+  if (!myUser || loading || capacity === null) {
     return (
       <div className="bg-white shadow-md rounded-xl p-6 w-full text-center">
         Loading your energy overview...
@@ -34,137 +55,188 @@ export default function Overview({ myUser }) {
     );
   }
 
+  const impact = calcImpact(donateAmount);
+  const totalImpact = calcImpact(monthlyDonation); // Correct: use Supabase monthly donation
+
   return (
     <div className="space-y-8">
       <div className="bg-white shadow-md rounded-xl p-6 w-full">
 
-      {/* Title */}
-      <div className="flex items-center gap-2 mb-4">
-        <Zap className="text-yellow-400" />
-        <h3 className="font-bold text-lg">Your Energy Overview</h3>
-      </div>
+        {/* Title */}
+        <div className="flex items-center gap-2 mb-4">
+          <Zap className="text-yellow-400" />
+          <h3 className="font-bold text-lg">Your Energy Overview</h3>
+        </div>
 
-      {/* Electricity Capacity */}
-      <div className="mb-6">
-        <div className="flex justify-between text-blue-500 font-semibold mb-1">
-          <span>Electricity Capacity</span>
-          <span>500 kWh</span>
-        </div>
-        <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
-          <div className="h-full bg-blue-500 w-full"></div>
-        </div>
-      </div>
+        {/* Electricity Capacity */}
+        <div className="mb-6">
+          <div className="flex justify-between text-blue-500 font-semibold mb-1">
+            <span>Electricity Capacity</span>
+            <span>{capacity} kWh</span>
+          </div>
 
-      {/* Remaining */}
-      <div className="mb-6">
-        <div className="flex justify-between text-purple-600 font-semibold mb-1">
-          <span>Remaining This Month</span>
-          <span>320 kWh</span>
-        </div>
-        <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-purple-500"
-            style={{ width: `${(maxRemaining / electricityCapacity) * 100}%` }}
-          ></div>
-        </div>
-      </div>
-
-      {/* Total Donated */}
-      <div className="mb-6">
-        <div className="flex justify-between text-[#6C00FF] font-semibold mb-1">
-          <span>Total Donated</span>
-          <span>{myUser.total_Donation_Amount_kWh} kWh</span>
-        </div>
-        <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-[#6C00FF]"
-            style={{ width: `${(totalDonated / electricityCapacity) * 100}%` }}
-          ></div>
-        </div>
-      </div>
-
-      {/* Carbon Offset + Trees Saved */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-
-        {/* Carbon Offset */}
-        <div className="p-4 bg-green-50 rounded-xl flex items-center gap-2">
-          <Leaf className="text-green-600 text-2xl" />
-          <div>
-            <p className="text-gray-500 text-sm">Carbon Offset</p>
-            <p className="font-bold text-green-700 text-xl">{totalImpact.co2} kg CO₂</p>
+          <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
+            <div className="h-full bg-blue-500 w-full"></div>
           </div>
         </div>
 
-        {/* Trees Saved */}
-        <div className="p-4 bg-yellow-50 rounded-xl flex items-center gap-2">
-          <span className="text-2xl">🌳</span>
-          <div>
-            <p className="text-gray-500 text-sm">Trees Saved</p>
-            <p className="font-bold text-yellow-700 text-xl">{totalImpact.trees} trees</p>
+        {/* Remaining This Month */}
+        <div className="mb-6">
+          <div className="flex justify-between text-purple-600 font-semibold mb-1">
+            <span>Remaining This Month</span>
+            <span>{remaining} kWh</span>
+          </div>
+
+          <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-purple-500"
+              style={{ width: `${(remaining / capacity) * 100}%` }}
+            ></div>
           </div>
         </div>
-      </div>
 
-      {/* Slider */}
-      <div className="mb-6">
-        <p className="font-semibold mb-1">
-          Select Donation Amount: {donateAmount} kWh
-        </p>
-        <input
-          type="range"
-          min={0}
-          max={maxRemaining}
-          value={donateAmount}
-          onChange={(e) => setDonateAmount(Number(e.target.value))}
-          className="w-full accent-purple-600"
-        />
-      </div>
+        {/* Total Donated */}
+        <div className="mb-6">
+          <div className="flex justify-between text-[#6C00FF] font-semibold mb-1">
+            <span>Total Donated</span>
+            <span>{monthlyDonation} kWh</span> {/* FIXED */}
+          </div>
 
-      {/* Estimated Impact */}
-      <div className="p-4 bg-purple-50 rounded-xl mb-6">
-        <h4 className="text-purple-700 font-bold mb-2">Estimated Impact:</h4>
-        <ul className="text-gray-700 text-sm list-disc ml-4">
-          <li>Powers equipment for ~{impact.hours} hours</li>
-          <li>Saves {impact.co2} kg CO₂</li>
-          <li>JARIAH certificate provided</li>
-        </ul>
-      </div>
+          <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-[#6C00FF]"
+              style={{
+                width: `${(monthlyDonation / capacity) * 100}%`,
+              }}
+            ></div>
+          </div>
+        </div>
 
-      {/* Donate Button */}
-      <button
-        onClick={() => {
-          // Save donation amount to localStorage for certificate generation
-          localStorage.setItem('selectedDonationAmount', donateAmount.toString());
-          navigate("/donate");
-        }}
-        className="w-full py-3 rounded-xl bg-gradient-to-r from-blue-500 via-purple-600 to-[#6C00FF] text-white font-bold text-lg flex justify-center items-center gap-2"
-      >
-        <Zap />
-        Donate Now
-      </button>
-    </div>
+        {/* Carbon Offset + Trees Saved */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
 
-    {/* --- Separate Recent Donation / History Box --- */}
-    <div className="bg-white shadow-md rounded-xl p-6 w-full mt-8">
-      <div className="flex justify-between items-center mb-4">
-        <h4 className="font-bold text-lg text-gray-800">Recent Donation</h4>
+          <div className="p-4 bg-green-50 rounded-xl flex items-center gap-2">
+            <Leaf className="text-green-600 text-2xl" />
+            <div>
+              <p className="text-gray-500 text-sm">Carbon Offset</p>
+              <p className="font-bold text-green-700 text-xl">
+                {totalImpact.co2} kg CO₂
+              </p>
+            </div>
+          </div>
+
+          <div className="p-4 bg-yellow-50 rounded-xl flex items-center gap-2">
+            <span className="text-2xl">🌳</span>
+            <div>
+              <p className="text-gray-500 text-sm">Trees Saved</p>
+              <p className="font-bold text-yellow-700 text-xl">
+                {totalImpact.trees} trees
+              </p>
+            </div>
+          </div>
+
+        </div>
+
+        {/* Slider */}
+        <div className="mb-6">
+          <p className="font-semibold mb-2 text-gray-800">
+            Select Donation Amount: <span className="text-[#3f4cc6ff]">{donateAmount} kWh</span>
+          </p>
+
+          <input
+            type="range"
+            min={0}
+            max={remaining}
+            value={donateAmount}
+            onChange={(e) => setDonateAmount(Number(e.target.value))}
+            className="
+              w-full
+              h-3
+              rounded-full
+              bg-gray-300
+              appearance-none
+              cursor-pointer
+              accent-purple-600
+              relative
+            "
+            style={{
+              background: `linear-gradient(to right, #3f4cc6ff ${(donateAmount/remaining)*100}%, #E5E7EB ${(donateAmount/remaining)*100}%)`,
+              borderRadius: "50px"
+            }}
+          />
+
+          <style>{`
+            input[type="range"]::-webkit-slider-thumb {
+              -webkit-appearance: none;
+              appearance: none;
+              width: 22px;
+              height: 22px;
+              border-radius: 50%;
+              background: #3f4cc6ff;
+              border: 3px solid white;
+              box-shadow: 0 0 6px rgba(0,0,0,0.2);
+              cursor: pointer;
+            }
+            input[type="range"]::-moz-range-thumb {
+              width: 22px;
+              height: 22px;
+              border-radius: 50%;
+              background: #6C00FF;
+              border: 3px solid white;
+              box-shadow: 0 0 6px rgba(0,0,0,0.2);
+              cursor: pointer;
+            }
+          `}</style>
+        </div>
+
+
+        {/* Estimated Impact */}
+        <div className="p-4 bg-purple-50 rounded-xl mb-6">
+          <h4 className="text-purple-700 font-bold mb-2">Estimated Impact:</h4>
+          <ul className="text-gray-700 text-sm list-disc ml-4">
+            <li>Powers equipment for ~{impact.hours} hours</li>
+            <li>Saves {impact.co2} kg CO₂</li>
+            <li>JARIAH certificate provided</li>
+          </ul>
+        </div>
+
+        {/* Donate Button */}
         <button
-          onClick={() => navigate("/donation_history", { state: { myUser } })}
-          className="text-blue-600 font-semibold hover:underline text-sm"
+          onClick={() => {
+            localStorage.setItem(
+              "selectedDonationAmount",
+              donateAmount.toString()
+            );
+            navigate("/donate");
+          }}
+          className="w-full py-3 rounded-xl bg-gradient-to-r from-blue-500 via-purple-600 to-[#6C00FF] text-white font-bold text-lg flex justify-center items-center gap-2"
         >
-          View Full History
+          <Zap />
+          Donate Now
         </button>
-      </div>
 
-      {/* Recent donation line */}
-      <p className="text-gray-700 text-sm">
-        {myUser.recentDonation
-          ? `Your last donation: ${myUser.recentDonation.amount} kWh on ${new Date(
-              myUser.recentDonation.date
-            ).toLocaleDateString()}`
-          : "You haven't made any donations yet."}
-      </p>
-    </div>
+      {/* --- Separate Recent Donation / History Box --- */}
+          <div className="bg-white shadow-md rounded-xl p-6 w-full mt-8">
+            <div className="flex justify-between items-center mb-4">
+              <h4 className="font-bold text-lg text-gray-800">Recent Donation</h4>
+              <button
+                onClick={() => navigate("/donation_history", { state: { myUser } })}
+                className="text-blue-600 font-semibold hover:underline text-sm"
+              >
+                View Full History
+              </button>
+            </div>
+
+            {/* Recent donation line */}
+            <p className="text-gray-700 text-sm">
+              {myUser.recentDonation
+                ? `Your last donation: ${myUser.recentDonation.amount} kWh on ${new Date(
+                    myUser.recentDonation.date
+                  ).toLocaleDateString()}`
+                : "You haven't made any donations yet."}
+            </p>
+          </div>
+      </div>
     </div>
   );
 }
