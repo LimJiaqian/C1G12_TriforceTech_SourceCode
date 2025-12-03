@@ -319,6 +319,54 @@ def donate_energy():
         print("Donate API error:", e)
         return jsonify({"error": str(e)}), 500
     
+@app.post("/api/save-transaction")
+def save_transaction():
+    try:
+        data = request.json
+
+        print("DATA RECEIVED:", data)
+
+        certificate_id = data.get("certificate_id")
+        user_id = int(data.get("user_id"))
+        donation_kwh = int(data.get("donation_kwh"))
+        impact_metric = data.get("impact_metric")
+        context = data.get("context")
+        co2 = float(data.get("co2"))
+
+        # Save into Supabase
+        result = supabase.table("transaction").insert({
+            "Certificate_ID": certificate_id,
+            "User_ID": user_id,
+            "Donation_kwh": donation_kwh,
+            "Impact_Metric": impact_metric,
+            "Context": context,
+            "Co2": co2
+        }).execute()
+
+        return jsonify({"message": "Transaction stored successfully!"})
+
+    except Exception as e:
+        print("Save transaction error:", e)
+        return jsonify({"error": str(e)}), 500
+    
+@app.get("/api/transactions/<int:user_id>")
+def get_transactions(user_id):
+    try:
+        result = (
+            supabase.table("transaction")
+            .select("Certificate_ID, User_ID, Date_Time, Donation_kwh, Impact_Metric, Context, Co2")
+            .eq("User_ID", user_id)
+            .order("Date_Time", desc=True)   # sort by timestamp
+            .execute()
+        )
+
+        return jsonify(result.data), 200
+
+    except Exception as e:
+        print("GET TRANSACTIONS ERROR:", e)
+        return jsonify({"error": str(e)}), 500
+
+
 if __name__ == "__main__":
     print("Flask server running on http://127.0.0.1:5000")
     app.run(port=5000, debug=True)

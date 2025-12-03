@@ -137,7 +137,8 @@ export default function DonationPage() {
           
           <button
             onClick={() => navigate("/home")}
-            className="ml-[20px] px-4 py-2 rounded-full bg-black/10 text-black font-medium backdrop-blur hover:bg-white/30 transition"
+            className="ml-[20px] px-4 py-2 rounded-full bg-black/10 text-black font-medium 
+                        backdrop-blur hover:bg-white/30 transition justify-self-start"
           >
             ← Back
           </button>

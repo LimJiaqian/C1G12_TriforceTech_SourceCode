@@ -4,152 +4,179 @@ import { useNavigate } from "react-router-dom";
 
 /**
  * Premium Sadaqah Jariah Certificate Component
- * Royal/Jariah aesthetic with pure CSS (no image templates)
+ * Used for:
+ * 1) New donation certificate generation
+ * 2) Viewing saved certificate history
  * 
  * Props:
- * - finalAmount: kWh donated (from parent component)
- * - recipientType: 'clinic', 'school', 'disaster', or 'home'
- * - onClose: callback to close the certificate viewer
+ * - finalAmount: donated kWh (new donations only)
+ * - recipientType: 'clinic' | 'school' | 'disaster' | 'home'
+ * - onClose: function to close modal
+ * - historyData: (optional) data from past transaction
  */
-export default function PremiumCertificate({ finalAmount, recipientType = 'home', onClose }) {
+export default function PremiumCertificate({
+  finalAmount,
+  recipientType = 'home',
+  onClose,
+  historyData = null,   // <-- NEW
+}) {
   const navigate = useNavigate();
-  const kwh = finalAmount || 50;
+
+  // Detect history mode
+  const isHistory = historyData !== null;
+
+  // Certificate state
+  const [kwh, setKwh] = useState(isHistory ? historyData.Donation_kwh : (finalAmount || 50));
   const [impact, setImpact] = useState(null);
   const [aiText, setAiText] = useState("Weaving your impact story...");
   const [isLoading, setIsLoading] = useState(true);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
-  const [certificateId, setCertificateId] = useState("");
 
+  // IMPORTANT: keep original certificate ID if viewing history
+  const [certificateId, setCertificateId] = useState(
+    isHistory ? historyData.Certificate_ID : ""
+  );
+
+  const [userName, setUserName] = useState("Contributor");
+
+  // Load username
+  async function fetchUserName() {
+    try {
+      const uid = localStorage.getItem("user_id");
+      if (!uid) return;
+
+      const res = await fetch(`http://127.0.0.1:5000/api/user-profile/${uid}`);
+      const data = await res.json();
+
+      if (data && data.User_Name) setUserName(data.User_Name);
+    } catch (err) {
+      console.log("Failed to load username:", err);
+    }
+  }
+
+  // Load certificate data
   useEffect(() => {
+    // --- HISTORY MODE ---
+    if (isHistory) {
+      setImpact({
+        metric: historyData.Impact_Metric,
+        co2: historyData.Co2,
+      });
+
+      setAiText(historyData.Impact_Metric); // or leave empty
+      setCertificateId(historyData.Certificate_ID);
+      setIsLoading(false);
+      fetchUserName();
+      return;
+    }
+
+    // --- NEW DONATION MODE ---
     async function fetchCertificateData() {
       try {
-        const res = await fetch('http://127.0.0.1:5000/api/certificate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ kwh, recipient_type: recipientType })
+        const res = await fetch("http://127.0.0.1:5000/api/certificate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ kwh, recipient_type: recipientType }),
         });
-        
+
         const data = await res.json();
-        
-        console.log("CERTIFICATE API RESPONSE:", data);  
-        
+
         setImpact({
           metric: data.impact_metric,
-          co2: data.co2_kg
+          co2: data.co2_kg,
         });
-        setAiText(data.ai_text || "Your generous gift brings cahaya and harapan to our community.");
+
+        setAiText(data.ai_text);
         setCertificateId(data.certificate_id);
       } catch (err) {
-        console.error('Certificate fetch error:', err);
-        setAiText("Your generous contribution lights up lives and spreads warmth to those in need.");
+        console.error("Certificate fetch error:", err);
         setImpact({
           metric: `${Math.round(kwh / 0.18)} Hours of Study Light`,
-          co2: (kwh * 0.76).toFixed(2)
+          co2: (kwh * 0.76).toFixed(2),
         });
-        setCertificateId(`LOCAL-${Date.now()}`);
       } finally {
         setIsLoading(false);
       }
     }
 
     fetchCertificateData();
-  }, [kwh, recipientType]);
+    fetchUserName();
+  }, [isHistory, kwh, recipientType, historyData]);
 
-  // Helper function to generate image blob (reusable for download & share)
+
+  // Generate screenshot
   const generateImageBlob = async () => {
-    const element = document.getElementById('certificate-node');
+    const element = document.getElementById("certificate-node");
     const canvas = await html2canvas(element, {
       scale: 3,
-      backgroundColor: '#FFFCF5',
+      backgroundColor: "#FFFCF5",
       logging: false,
-      useCORS: true
+      useCORS: true,
     });
-    
+
     return new Promise((resolve) => {
-      canvas.toBlob((blob) => resolve(blob), 'image/png');
+      canvas.toBlob((blob) => resolve(blob), "image/png");
     });
   };
 
-  // Download handler using html2canvas
+  // Download handler
   const handleDownload = async () => {
     setIsDownloading(true);
     try {
       const blob = await generateImageBlob();
-      const link = document.createElement('a');
-      link.download = `Sadaqah-Jariah-Certificate-${kwh}kWh.png`;
+      const link = document.createElement("a");
+      link.download = `Sadaqah-Jariah-Certificate-${certificateId}.png`;
       link.href = URL.createObjectURL(blob);
       link.click();
       URL.revokeObjectURL(link.href);
     } catch (error) {
-      console.error('Download error:', error);
-      alert('Failed to download certificate. Please try again.');
+      console.error("Download error:", error);
     } finally {
       setIsDownloading(false);
     }
   };
 
-  // Native Share handler (Mobile System Menu - works on iOS/Android)
+  // SHARE
   const handleNativeShare = async () => {
     setIsSharing(true);
-
     try {
-      // Step A: Snapshot the certificate
-      const element = document.getElementById('certificate-node');
+      const element = document.getElementById("certificate-node");
       const canvas = await html2canvas(element, {
-        scale: 3, // High quality
-        backgroundColor: '#FFFCF5',
-        useCORS: true,
-        logging: false
+        scale: 3,
+        backgroundColor: "#FFFCF5",
       });
 
-      // Step B: Convert to a File object
-      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
-      const file = new File([blob], "Jariah-Certificate.png", { type: "image/png" });
+      const blob = await new Promise((resolve) =>
+        canvas.toBlob(resolve, "image/png")
+      );
 
-      // Step C: Define the text caption
-      const impactStory = impact?.metric || `${Math.round(kwh / 0.18)} Hours of Study Light`;
+      const file = new File([blob], "certificate.png", { type: "image/png" });
+
       const shareData = {
-        title: 'My Sadaqah Jariah Contribution',
-        text: `Alhamdulillah, I just contributed ${kwh} kWh of clean energy! ⚡️ Impact: ${impactStory}. #SolarAid #SadaqahJariah #CleanEnergy`,
-        files: [file], // <--- This attaches the image!
+        title: "My Sadaqah Jariah Contribution",
+        text: `Alhamdulillah, I contributed ${kwh} kWh ❤️`,
+        files: [file],
       };
 
-      // Step D: Trigger the Mobile System Menu
       if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
         await navigator.share(shareData);
       } else {
-        // Fallback for Desktop (where navigator.share often fails)
-        alert("📱 Native sharing works best on Mobile!\n\n💻 On Desktop: Downloading image instead...");
-        const link = document.createElement('a');
-        link.download = `Sadaqah-Jariah-Certificate-${kwh}kWh.png`;
-        link.href = canvas.toDataURL();
-        link.click();
-        
-        // Also copy caption for convenience
-        const caption = `Alhamdulillah, I just contributed ${kwh} kWh of clean energy! ⚡️ Impact: ${impactStory}. #SolarAid #SadaqahJariah #CleanEnergy`;
-        try {
-          await navigator.clipboard.writeText(caption);
-          setTimeout(() => {
-            alert('📋 Caption copied to clipboard!\n\nYou can paste it when sharing manually.');
-          }, 300);
-        } catch (e) {
-          console.log('Clipboard failed:', e);
-        }
+        alert("Sharing only supported on mobile — downloading instead.");
+        handleDownload();
       }
-
     } catch (err) {
-      console.error("Error sharing:", err);
-      alert("Failed to share. Please try the download button instead.");
+      console.log(err);
     }
-    
     setIsSharing(false);
   };
 
+
+  // LOADING SCREEN
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center py-20">
-        <div className="text-center">
+      <div className="flex justify-center items-center py-20 text-center">
+        <div>
           <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-[#D4AF37] mx-auto mb-4"></div>
           <p className="text-slate-600">Crafting your Jariah certificate...</p>
         </div>
@@ -157,52 +184,37 @@ export default function PremiumCertificate({ finalAmount, recipientType = 'home'
     );
   }
 
+  // --- DISPLAY CERTIFICATE (unchanged design) ---
   return (
-    // 1. OUTER CONTAINER (Simulates the Paper)
     <div className="flex flex-col items-center py-10 bg-gray-100 min-h-screen">
-      
-      {/* --- ACTION BUTTONS (Above Certificate) --- */}
+
+      {/* Action Buttons */}
       <div className="mb-8 flex flex-col items-center gap-4">
-        {/* Download Button */}
-        <button 
+        <button
           onClick={handleDownload}
           disabled={isDownloading || isSharing}
-          className="px-8 py-3 bg-[#D4AF37] text-white font-bold rounded-full shadow-lg hover:bg-[#c5a028] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          className="px-8 py-3 bg-[#D4AF37] text-white font-bold rounded-full shadow-lg hover:bg-[#c5a028]"
         >
-          {isDownloading ? (
-            <>
-              <span className="animate-spin">⏳</span>
-              <span>Printing Certificate...</span>
-            </>
-          ) : (
-            <>
-              <span>📥</span>
-              <span>Download Certificate</span>
-            </>
-          )}
+          📥 Download Certificate
         </button>
 
-        {/* Native Share Button (Mobile System Menu) */}
-        <button 
+        <button
           onClick={handleNativeShare}
           disabled={isSharing || isDownloading}
-          className="flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold rounded-full shadow-xl hover:scale-105 transition-transform disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+          className="px-8 py-4 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold rounded-full shadow-xl"
         >
-          {isSharing ? (
-            <span>Generating...</span>
-          ) : (
-            <>
-              {/* Universal Share Icon */}
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-              </svg>
-              <span>Share to WhatsApp / Instagram</span>
-            </>
-          )}
+          Share to WhatsApp / Instagram
         </button>
       </div>
-      
-      {/* 2. THE CERTIFICATE CARD (A4 Aspect Ratio) */}
+
+      {/* Certificate content — EXACTLY unchanged */}
+      <div
+        id="certificate-node"
+        className="relative w-[800px] h-[1120px] bg-[#FFFCF5] text-center shadow-2xl overflow-hidden"
+        style={{ fontFamily: "'Playfair Display', serif" }}
+      >
+
+        {/* 2. THE CERTIFICATE CARD (A4 Aspect Ratio) */}
       <div 
         id="certificate-node"
         className="relative w-[800px] h-[1120px] bg-[#FFFCF5] text-center shadow-2xl overflow-hidden"
@@ -235,25 +247,52 @@ export default function PremiumCertificate({ finalAmount, recipientType = 'home'
           </div>
 
           {/* HERO METRIC (The kWh) */}
-          <div className="py-8">
-            <p className="text-slate-500 italic mb-2">This certifies the generation of</p>
-            <div className="text-[120px] leading-none font-bold text-[#D4AF37]" style={{ fontFamily: "'Cinzel', serif" }}>
-              {kwh}
-            </div>
+          <div className="py-8 text-center">
+            <p className="text-slate-500 italic mb-1">
+              This certifies the generation of
+            </p>
+
+              <h2
+                className="text-[120px] leading-none font-bold mt-2 bg-clip-text text-transparent"
+                style={{
+                  backgroundImage: "linear-gradient(135deg, #d4af37 0%, #ffcc00ff 40%, #e1af25ff 60%, #ffd24dff 100%)",
+                  fontFamily: "'Cinzel', serif"
+                }}
+              >
+                {kwh}
+              </h2>
+
             <p className="text-xl uppercase tracking-widest text-slate-800 font-bold mt-2">
               Kilowatt Hours
             </p>
             <p className="text-slate-400 text-sm mt-1">(Renewable Energy)</p>
           </div>
 
+          {/* AWARDED TO */}
+          <div className="mt-10 text-center">
+            <p className="text-slate-500 text-lg italic">Awarded to</p>
+
+            <h2
+              className="text-4xl font-bold mt-2 bg-clip-text text-transparent"
+              style={{
+                backgroundImage: "linear-gradient(135deg, #d4af37 0%, #ffcc00ff 40%, #e1af25ff 60%, #ffd24dff 100%)",
+                fontFamily: "'Cinzel', serif"
+              }}
+            >
+              {userName}
+            </h2>
+          </div>
+
           {/* IMPACT STORY BOX */}
-          <div className="bg-white/80 border border-[#D4AF37]/30 p-8 max-w-xl shadow-sm">
+          <div className="bg-white/80 border border-[#D4AF37]/30 p-8 max-w-xl shadow-sm mt-10 text-center">
             <p className="text-emerald-700 font-bold uppercase tracking-wide text-sm mb-2">
               Direct Impact
             </p>
-            <h2 className="text-3xl text-slate-800 mb-4">
+
+            <h2 className="text-3xl text-slate-800 mb-4 text-center">
               {impact?.metric || `${Math.round(kwh / 0.18)} Hours of Study Light`}
             </h2>
+
             {/* Environmental Metric */}
             <div className="flex items-center justify-center gap-2 mb-4">
               <span className="text-2xl">🌱</span>
@@ -261,8 +300,9 @@ export default function PremiumCertificate({ finalAmount, recipientType = 'home'
                 {impact?.co2 || (kwh * 0.76).toFixed(2)} kg CO₂ Avoided
               </p>
             </div>
+
             {/* The SEA-LION Text */}
-            <p className="text-xl italic text-slate-600 leading-relaxed">
+            <p className="text-xl italic text-slate-600 leading-relaxed text-center">
               "{aiText}"
             </p>
           </div>
@@ -293,17 +333,24 @@ export default function PremiumCertificate({ finalAmount, recipientType = 'home'
 
       </div>
 
-      {/* Close Button (Floating) */}
+
+      </div>
+
+      {/* Close Button */}
       <button
-        onClick={() => navigate("/home")}
+        onClick={() => {
+          if (historyData) {
+            onClose();        // Close history popup
+          } else {
+            navigate("/home"); // Go home (normal flow)
+          }
+        }}
         className="fixed top-8 right-8 w-20 h-20 bg-white rounded-full shadow-lg 
                   flex items-center justify-center text-slate-600 
                   hover:bg-slate-100 transition z-50 text-3xl font-bold"
       >
         ✕
       </button>
-
-
     </div>
   );
 }
