@@ -1,10 +1,10 @@
-import React, { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { MessageCircle } from "lucide-react";
 import Overview from "./Overview";
 import Leaderboard from "./Leaderboard";
 import SmartPrediction from "./SmartPrediction";
 import ChatPanel from "./ChatPanel";
-import { useNavigate } from "react-router-dom";
-import { MessageCircle } from "lucide-react";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -14,17 +14,70 @@ export default function Dashboard() {
   const [topUsers, setTopUsers] = useState([]);
   const [myUser, setMyUser] = useState(null);
   const [personAhead, setPersonAhead] = useState(null);
+  const [analysis, setAnalysis] = useState(null);
+  const [capacity, setCapacity] = useState(null);
+  const [monthlyDonation, setMonthlyDonation] = useState(null);
+  const [remaining, setRemaining] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (leftRef.current) setLeftHeight(leftRef.current.offsetHeight);
   }, []);
 
+  // Load smart prediction data from backend API
+  useEffect(() => {
+    async function fetchAIPrediction() {
+      if (!myUser) return;
+
+      try {
+        const res = await fetch(
+          `http://127.0.0.1:5000/api/predict/${myUser.User_ID}`
+        );
+
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+
+        const data = await res.json();
+        setAnalysis(data);
+      } catch (err) {
+        console.error("Error fetching AI prediction data:", err);
+        setError(err.message);
+      }
+    }
+
+    fetchAIPrediction();
+  }, [myUser]);
+
+  // Load electricity data from backend API
+  useEffect(() => {
+    async function loadElectricity() {
+      if (!myUser) return;
+
+      const res = await fetch(
+        `http://127.0.0.1:5000/api/user-electricity/${myUser.User_ID}`
+      );
+      const data = await res.json();
+
+      if (res.ok) {
+        setCapacity(data.capacity);
+        setMonthlyDonation(data.donated);
+        setRemaining(data.remaining); // <-- capacity - donation (CALCULATED)
+      } else {
+        console.error("Backend error:", data);
+      }
+
+      setLoading(false);
+    }
+
+    loadElectricity();
+  }, [myUser]);
+
+  // Load leaderboard, user, person ahead info from backend API
   useEffect(() => {
     async function fetchAll() {
 
       const MY_USER_ID = parseInt(localStorage.getItem("user_id"));
       if (!MY_USER_ID) {
-        console.error("❌ Missing user_id in localStorage!");
+        console.error("Missing user_id in localStorage!");
         return;
       }
 
@@ -35,12 +88,12 @@ export default function Dashboard() {
         setTopUsers(data.leaderboard);
 
         // 2. User info
-        res = await fetch(`http://127.0.0.1:5000/user/${MY_USER_ID}/position`);
+        res = await fetch(`http://127.0.0.1:5000/api/user/${MY_USER_ID}/position`);
         let myData = await res.json();
         setMyUser(myData);
 
         // 3. Person ahead info
-        const resPrev = await fetch(`http://127.0.0.1:5000/user/${MY_USER_ID}/previous`);
+        const resPrev = await fetch(`http://127.0.0.1:5000/api/user/${MY_USER_ID}/previous`);
         if (resPrev.ok) {
           setPersonAhead(await resPrev.json());
         }
@@ -110,8 +163,8 @@ export default function Dashboard() {
         <div className="flex gap-8 mt-6 items-start flex-col lg:flex-row">
 
           {/* LEFT */}
-          <div ref={leftRef} className="flex-1">
-            <Overview myUser={myUser}/>
+          <div ref={leftRef} className="flex-1 w-full">
+            <Overview myUser={myUser} analysis={analysis} capacity={capacity} monthlyDonation={monthlyDonation} remaining={remaining} loading={loading} />
           </div>
 
           {/* RIGHT */}
@@ -119,14 +172,13 @@ export default function Dashboard() {
             topUsers={topUsers}
             myUser={myUser}
             personAhead={personAhead}
-            leftHeight={leftHeight} 
+            leftHeight={leftHeight}
           />
         </div>
-
-
+        
         <div style={{ marginTop: "2rem" }}>
           <div className="mb-20">
-            <SmartPrediction myUser={myUser} />
+            <SmartPrediction myUser={myUser} analysis={analysis} remaining={remaining} />
           </div>
         </div>
       </div>

@@ -15,7 +15,12 @@ export default function Leaderboard({ topUsers, myUser, personAhead }) {
           {topUsers.slice(0, 5).map((user, i) => (
             <div
               key={i}
-              className="flex items-center justify-between bg-gray-100 rounded-lg p-3 hover:bg-gray-200 transition"
+              className={`flex items-center justify-between rounded-lg p-3 transition ${user.User_ID === myUser?.User_ID
+                ? "bg-purple-200"             // highlight "YOU"
+                : user.User_ID === personAhead?.User_ID
+                  ? "bg-purple-100"             // highlight "person ahead"
+                  : "bg-gray-100 hover:bg-gray-200"  // normal top users
+                }`}
             >
               <div className="flex items-center gap-3">
                 <img
@@ -29,58 +34,70 @@ export default function Leaderboard({ topUsers, myUser, personAhead }) {
                 </div>
               </div>
 
-              <span className="font-bold text-[#6C00FF]">#{i + 1}</span>
+              <span
+                className={`font-bold ${user.User_ID === myUser?.User_ID ? "text-purple-700" : "text-[#6C00FF]"
+                  }`}
+              >
+                #{i + 1}
+              </span>
             </div>
           ))}
 
-          <p className="text-center text-gray-400 font-semibold">...</p>
+          {/* Show "..." and person ahead only if myUser is NOT in top 5 */}
+          {!topUsers.slice(0, 5).some(u => u.User_ID === myUser?.User_ID) && (
+            <>{myUser && !(myUser.Rank === 6 || myUser.Rank === 7) && (
+              <p className="text-center text-gray-400 font-semibold">
+                ...
+              </p>
+            )}
 
-          {/* Person Ahead */}
-          {personAhead && (
-            <div className="flex items-center justify-between bg-purple-100 rounded-lg p-3">
-              <div className="flex items-center gap-3">
-                <img
-                  src={personAhead.User_Img}
-                  className="w-12 h-12 rounded-full object-cover"
-                />
-                <div>
-                  <p className="font-semibold">{personAhead.User_Name}</p>
-                  <p className="text-sm text-gray-500">{personAhead.Donate_Amount} kWh</p>
+              {/* Person Ahead */}
+              {personAhead && (
+                <div className="flex items-center justify-between bg-purple-100 rounded-lg p-3">
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={personAhead.User_Img}
+                      className="w-12 h-12 rounded-full object-cover"
+                    />
+                    <div>
+                      <p className="font-semibold">{personAhead.User_Name}</p>
+                      <p className="text-sm text-gray-500">{personAhead.Donate_Amount} kWh</p>
+                    </div>
+                  </div>
+                  <span className="font-bold text-purple-600">#{myUser.Rank - 1}</span>
                 </div>
-              </div>
-              <span className="font-bold text-purple-600">
-                #{myUser.Rank - 1}
-              </span>
-            </div>
-          )}
+              )}
 
-          {/* YOU */}
-          {myUser && (
-            <div className="flex items-center justify-between bg-purple-200 rounded-lg p-3">
-              <div className="flex items-center gap-3">
-                <img
-                  src={myUser.User_Img}
-                  className="w-12 h-12 rounded-full object-cover"
-                />
-                <div>
-                  <p className="font-semibold">{myUser.User_Name}</p>
-                  <p className="text-sm text-gray-500">{myUser.Donate_Amount} kWh</p>
+              {/* YOU */}
+              {myUser && (
+                <div className="flex items-center justify-between bg-purple-200 rounded-lg p-3">
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={myUser.User_Img}
+                      className="w-12 h-12 rounded-full object-cover"
+                    />
+                    <div>
+                      <p className="font-semibold">{myUser.User_Name}</p>
+                      <p className="text-sm text-gray-500">{myUser.Donate_Amount} kWh</p>
+                    </div>
+                  </div>
+
+                  <span className="font-bold text-purple-700">#{myUser.Rank}</span>
                 </div>
-              </div>
-
-              <span className="font-bold text-purple-700">
-                #{myUser.Rank}
-              </span>
-            </div>
-          )}
-
-          {/* Encourage */}
-          {myUser && (
-            <p className="text-sm font-bold text-[#6C00FF] text-center mt-2">
-              Donate {myUser.kWh_needed_for_top_5} more kWh to reach Top 5 🚀
-            </p>
+              )}
+            </>
           )}
         </div>
+
+        {/* Encourage */}
+        {myUser && (
+          <p className="text-sm font-bold text-[#6C00FF] text-center mt-6">
+            {myUser.kWh_needed_for_top_5 > 0
+              ? `Donate ${myUser.kWh_needed_for_top_5} more kWh to reach the Top 5 🚀`
+              : "🎉 Congratulations! You're already in the Top 5 — Keep it up!!"}
+          </p>
+        )}
+
       </div>
     </div>
   );

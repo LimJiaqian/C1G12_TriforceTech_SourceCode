@@ -48,8 +48,39 @@ export default function Login() {
   return (
     <div className="min-h-screen flex items-center justify-center gap-10 px-6 bg-gradient-to-br from-[#3BA0FF] via-[#5A32FF] to-[#6C00FF]">
 
+      {/* Header */}
+      <div
+        className="
+            fixed top-0 left-0 w-full
+            bg-gradient-to-r from-[#3BA0FF] via-[#5A32FF] to-[#6C00FF]
+            backdrop-blur-md shadow-sm z-[999]
+          "
+      >
+        <div className="w-full py-3 px-2 grid grid-cols-3 items-center">
+
+          {/* LEFT — Landing Page Button */}
+          <button
+            onClick={() => navigate("/")}
+            className="ml-[20px] px-4 py-2 rounded-full bg-black/10 text-black font-medium 
+                        backdrop-blur hover:bg-white/30 transition justify-self-start"
+          >
+            ← Back
+          </button>
+
+          {/* CENTER — SolarAid Brand */}
+          <div className="flex justify-center">
+            <img
+              src="/src/assets/logo.png"
+              alt="Logo"
+              className="w-10 h-10 drop-shadow"
+            />
+            <span className="text-3xl font-semibold text-black">SolarAid</span>
+          </div>
+        </div>
+      </div>
+
       {/* LEFT SIDE — LOGIN FORM */}
-      <div className="flex items-center justify-center p-10">
+      <div className="flex items-center justify-center p-10 mt-10">
         <div className="bg-white/90 backdrop-blur-xl shadow-2xl rounded-2xl p-10 w-full max-w-md border border-white/30">
 
           {/* Logo */}
@@ -65,7 +96,7 @@ export default function Login() {
           </p>
 
           <form className="space-y-5" onSubmit={(e) => e.preventDefault()}>
-            
+
             {/* Email */}
             <div>
               <label className="text-gray-700 font-medium text-sm">Email</label>
@@ -124,7 +155,7 @@ export default function Login() {
       <div className="hidden md:flex items-center justify-center p-10">
         <div className="bg-white/20 backdrop-blur-xl border border-white/30 rounded-2xl shadow-xl p-8 w-80">
           <h3 className="text-white text-xl font-bold mb-4">Demo Admin Accounts</h3>
-          
+
           <div className="space-y-4">
             {demoAccounts.map((acct, i) => (
               <div

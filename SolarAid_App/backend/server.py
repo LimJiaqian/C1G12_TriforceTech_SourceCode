@@ -3,18 +3,15 @@ from flask_cors import CORS
 from backend.sealion_ai.area_detection import get_top5_energy_need
 from backend.sealion_ai.thanks_ai import generate_thankyou_message
 from backend.sealion_ai.certificate_generator import generate_certificate
-from backend.analytics import DonationAnalytics
-from backend.gemini_ai.ai_agent import DonationAIAgent
 from backend.database.supabase import supabase
+from backend.cloudflare_workers_ai.prediction_agent import (
+    create_prediction_agent_from_env,
+)
+from backend.cloudflare_workers_ai.sql_agent import create_agent_from_env
+from backend.cloudflare_workers_ai.research_agent import create_energy_agent_from_env
 
 app = Flask(__name__)
 CORS(app)
-
-# Initialize analytics and AI agent for prediction feature
-CSV_PATH = "backend/dataset/donations.csv"
-analytics = DonationAnalytics(CSV_PATH)
-analytics.load_data()
-agent = DonationAIAgent() 
 
 @app.post("/api/login")
 def login():
@@ -25,12 +22,7 @@ def login():
         password = data.get("password")
 
         # Query Supabase
-        result = (
-            supabase.table("user")
-            .select("*")
-            .eq("username", email)
-            .execute()
-        )
+        result = supabase.table("user").select("*").eq("username", email).execute()
 
         if not result.data:
             return jsonify({"error": "User not found"}), 404
@@ -41,26 +33,31 @@ def login():
         if user["User_password"] != password:
             return jsonify({"error": "Incorrect password"}), 401
 
-        return jsonify({
-            "message": "Login successful",
-            "user_id": user["User_ID"],
-            "username": user["username"],
-            "token": "demo-token"  # You can replace with JWT later
-        })
+        return jsonify(
+            {
+                "message": "Login successful",
+                "user_id": user["User_ID"],
+                "username": user["username"],
+                "token": "demo-token",  # You can replace with JWT later
+            }
+        )
 
     except Exception as e:
         print("Login error:", e)
         return jsonify({"error": str(e)}), 500
+
 
 @app.get("/api/top5")
 def top5():
     result = get_top5_energy_need()
     return jsonify(result)
 
+
 @app.route("/api/thankyou", methods=["GET"])
 def api_thankyou():
     message = generate_thankyou_message()
     return jsonify({"message": message})
+
 
 @app.route("/api/certificate", methods=["POST", "GET"])
 def api_certificate():
@@ -73,29 +70,29 @@ def api_certificate():
         # Default values for demo
         kwh = 50
         recipient_type = "home"
-        
+
         # Get from request if provided
         if request.method == "POST" and request.json:
             kwh = float(request.json.get("kwh", 50))
             recipient_type = request.json.get("recipient_type", "home")
-        
+
         # Generate certificate
         result = generate_certificate(kwh, recipient_type)
-        
-        return jsonify({
-            "image_url": result["image_base64"],
-            "impact_metric": result["impact_metric"],
-            "co2_kg": result["co2_kg"],
-            "ai_text": result["ai_text"],
-            "certificate_id": result["certificate_id"] 
-        })
-        
+
+        return jsonify(
+            {
+                "image_url": result["image_base64"],
+                "impact_metric": result["impact_metric"],
+                "co2_kg": result["co2_kg"],
+                "ai_text": result["ai_text"],
+                "certificate_id": result["certificate_id"],
+            }
+        )
+
     except Exception as e:
         print(f"Certificate Generation Error: {e}")
-        return jsonify({
-            "error": str(e),
-            "image_url": None
-        }), 500
+        return jsonify({"error": str(e), "image_url": None}), 500
+
 
 # ========================================
 # PREDICTION FEATURE ENDPOINTS
@@ -111,7 +108,7 @@ def leaderboard():
         )
 
         users = result.data
-        
+
         # Add ranking
         for idx, u in enumerate(users):
             u["Rank"] = idx + 1
@@ -121,7 +118,8 @@ def leaderboard():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@app.get("/user/<int:user_id>/position")
+
+@app.get("/api//user/<int:user_id>/position")
 def get_user_position(user_id):
     try:
         # Get all users sorted by donation
@@ -144,17 +142,16 @@ def get_user_position(user_id):
             return jsonify({"error": "User not found"}), 404
 
         # Compute how much more kWh needed to reach top 5
-        top5_cutoff = (
-            users[4]["Donate_Amount"] if len(users) >= 5 else 0
-        )
-        myUser["kWh_needed_for_top_5"] = max(0, top5_cutoff - myUser["Donate_Amount"])
+        top5_cutoff = users[4]["Donate_Amount"] if len(users) >= 5 else 0
+        myUser["kWh_needed_for_top_5"] = max(0, top5_cutoff - myUser["Donate_Amount"] + 1)
 
         return jsonify(myUser)
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@app.get("/user/<int:user_id>/previous")
+
+@app.get("/api/user/<int:user_id>/previous")
 def get_previous_ranker(user_id):
     try:
         result = (
@@ -169,7 +166,9 @@ def get_previous_ranker(user_id):
             u["Rank"] = i + 1
 
         # find current rank
-        my_index = next((i for i,u in enumerate(users) if u["User_ID"] == user_id), None)
+        my_index = next(
+            (i for i, u in enumerate(users) if u["User_ID"] == user_id), None
+        )
         if my_index is None or my_index == 0:
             return jsonify({"message": "No one ahead"}), 404
 
@@ -178,6 +177,7 @@ def get_previous_ranker(user_id):
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 @app.get("/api/user-electricity/<int:user_id>")
 def get_user_electricity(user_id):
@@ -194,15 +194,18 @@ def get_user_electricity(user_id):
 
         row = result.data[0]
 
-        return jsonify({
-            "capacity": row["Electricity_Capacity"],
-            "donated": row["Monthly_Donation"],
-            "remaining": row["Electricity_Capacity"] - row["Monthly_Donation"]
-        })
+        return jsonify(
+            {
+                "capacity": row["Electricity_Capacity"],
+                "donated": row["Monthly_Donation"],
+                "remaining": row["Electricity_Capacity"] - row["Monthly_Donation"],
+            }
+        )
 
     except Exception as e:
         print("Error:", e)
         return jsonify({"error": str(e)}), 500
+
 
 @app.get("/api/user-profile/<int:user_id>")
 def get_user_profile(user_id):
@@ -224,47 +227,60 @@ def get_user_profile(user_id):
         return jsonify({"error": str(e)}), 500
 
 
+sql_agent = create_agent_from_env(verbose=False)
+research_agent = create_energy_agent_from_env(verbose=False)
+prediction_agent = create_prediction_agent_from_env(
+    sql_agent, research_agent, verbose=False
+)
 
-@app.route("/user/<int:user_id>/ai-analysis", methods=["GET"])
-def get_ai_analysis(user_id):
-    """Get AI-powered analysis and recommendations for the user"""
-    try:
-        # Get the previous ranker
-        previous_ranker = analytics.get_previous_ranker(user_id)
 
-        # Extract the user_id if it exists
-        previous_ranker_id = previous_ranker['user_id'] if previous_ranker else None
-
-        # Get the patterns
-        donation_context = analytics.get_yearly_patterns(
-            user_id=user_id,
-            previous_ranker_id=previous_ranker_id,
+@app.route("/api/predict/<int:user_id>", methods=["GET"])
+def get_prediction(user_id):
+    """
+    Analyzes user and competitor data, and external context to generate
+    energy savings predictions for a given user_id.
+    """
+    if prediction_agent is None:
+        return (
+            jsonify(
+                {
+                    "error": "Service Unavailable",
+                    "detail": "Prediction agents failed to initialize on startup.",
+                }
+            ),
+            503,
         )
 
-        # Get AI analysis
-        ai_result = agent.analyze(donation_context)
+    try:
+        # Call the core prediction logic
+        print(f"\n--- Calling predict_savings for user_id: {user_id} ---")
+        result = prediction_agent.predict_savings(user_id=user_id)
+        print(result)
 
-        return jsonify({
-            "donation_context": donation_context,
-            "ai_analysis": ai_result
-        })
+        # Flask's jsonify automatically handles serialization
+        return jsonify(result), 200
+
     except ValueError as e:
-        print(f"ValueError in get_ai_analysis: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({"error": f"Invalid user_id: {str(e)}"}), 400
+        # Handle errors during data fetching (e.g., user not found, SQL error)
+        return jsonify({"error": "Invalid Data or Request", "detail": str(e)}), 400
     except Exception as e:
-        print(f"Error in get_ai_analysis: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
+        # Handle general processing errors (e.g., LLM generation failure)
+        return (
+            jsonify(
+                {
+                    "error": "Internal Server Error",
+                    "detail": f"Prediction processing error: {str(e)}",
+                }
+            ),
+            500,
+        )
     
 @app.post("/api/donate")
 def donate_energy():
     try:
         data = request.json
         user_id = int(data.get("user_id"))
-        kwh = int(float(data.get("kwh", 0)))     # <<< FIXED HERE
+        kwh = int(float(data.get("kwh", 0)))     
 
         if not user_id or kwh <= 0:
             return jsonify({"error": "Invalid user_id or donation amount"}), 400

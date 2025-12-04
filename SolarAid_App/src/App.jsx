@@ -4,7 +4,7 @@ import LandingPage from "./landingpages/LandingPage.jsx";
 import DonationPage from "./pages/donation.jsx";
 import DonationComplete from "./pages/donation_done.jsx";
 import Login from "./pages/login.jsx";
-import Dashboard from "./pages/dashboard.jsx";
+import Dashboard from "./pages/Dashboard.jsx";
 import DonationHistory from "./pages/DonationHistory.jsx";
 
 export default function App() {
