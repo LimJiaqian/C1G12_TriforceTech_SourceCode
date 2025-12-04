@@ -1,11 +1,13 @@
 """
 Audio Bridge Module for Voice-to-RAG Integration
 Handles audio transcription via AssemblyAI and knowledge base updates via JamAI
+With Google Gemini fallback support
 """
 
 import os
 import time
 import assemblyai as aai
+import google.generativeai as genai
 from jamaibase import JamAI
 from jamaibase import types as p
 from dotenv import load_dotenv
@@ -17,11 +19,15 @@ load_dotenv()
 ASSEMBLYAI_API_KEY = os.getenv("ASSEMBLYAI_API_KEY")
 VITE_JAM_API_KEY = os.getenv("VITE_JAM_API_KEY")
 VITE_JAM_PROJECT_ID = os.getenv("VITE_JAM_PROJECT_ID")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 KNOWLEDGE_TABLE_ID = "meeting_transcripts"
 
 # Initialize clients
 if ASSEMBLYAI_API_KEY:
     aai.settings.api_key = ASSEMBLYAI_API_KEY
+
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
 
 
 def transcribe_audio(audio_path: str) -> dict:
@@ -205,9 +211,48 @@ def process_enquiry(input_data: str, input_type: str = 'text') -> dict:
         }
 
 
+def handle_fallback(user_query: str) -> str:
+    """
+    Fallback handler using Google Gemini when JamAI returns FALLBACK_MODE
+    
+    Args:
+        user_query (str): The user's original query
+        
+    Returns:
+        str: Response from Google Gemini
+        
+    Raises:
+        Exception: If Gemini API fails
+    """
+    if not GEMINI_API_KEY:
+        raise ValueError("GEMINI_API_KEY not found in environment variables")
+    
+    try:
+        print(f"FALLBACK_MODE detected - Using Google Gemini")
+        
+        # Initialize Gemini 1.5 Flash model
+        model = genai.GenerativeModel(
+            model_name='gemini-1.5-flash',
+            system_instruction="You are a helpful, friendly assistant. Answer the user naturally."
+        )
+        
+        # Generate response
+        response = model.generate_content(user_query)
+        
+        gemini_response = response.text
+        print(f"Gemini response generated: {len(gemini_response)} characters")
+        
+        return gemini_response
+        
+    except Exception as e:
+        print(f"Gemini fallback error: {e}")
+        raise Exception(f"Gemini fallback failed: {str(e)}")
+
+
 def query_jamai_chat(query_text: str, table_id: str = "Chatbox") -> dict:
     """
     Query the JamAI Action Table for a response
+    The Action Table handles hybrid routing (RAG + Gemini fallback)
     
     Args:
         query_text (str): The user's query
@@ -262,16 +307,35 @@ def query_jamai_chat(query_text: str, table_id: str = "Chatbox") -> dict:
         else:
             response_text = "No rows returned from Action Table"
         
-        # Extract clean text (strip any whitespace)
-        jam_response_text = response_text.strip()
+        print(f"Received response from JamAI: {response_text[:100]}...")
         
-        print(f"Received response from JamAI: {jam_response_text[:100]}...")
+        # Check for FALLBACK_MODE trigger
+        if response_text.strip() == "FALLBACK_MODE":
+            print(f"FALLBACK_MODE detected - switching to Google Gemini")
+            try:
+                # Use Gemini as fallback
+                gemini_response = handle_fallback(query_text)
+                return {
+                    "success": True,
+                    "response": gemini_response,
+                    "table_id": table_id,
+                    "fallback_used": True,
+                    "fallback_provider": "Google Gemini"
+                }
+            except Exception as fallback_error:
+                print(f"Fallback failed: {fallback_error}")
+                return {
+                    "success": False,
+                    "response": "Sorry, both JamAI and Gemini fallback failed. Please try again.",
+                    "error": str(fallback_error)
+                }
         
-        # Return JamAI response directly
+        # Return JamAI response normally
         return {
             "success": True,
-            "response": jam_response_text,
-            "table_id": table_id
+            "response": response_text,
+            "table_id": table_id,
+            "fallback_used": False
         }
         
     except Exception as e:

@@ -267,11 +267,39 @@ def query_jamai_chat(query_text: str, table_id: str = "Chatbox") -> dict:
         
         print(f"Received response from JamAI: {jam_response_text[:100]}...")
         
-        # Return JamAI response directly
+        # The "Switch" Logic - Check for FALLBACK_MODE trigger
+        if "FALLBACK_MODE" in jam_response_text:
+            print(f">> Switching to Local Gemini...")
+            print(f"Original user query: {query_text[:100]}...")
+            
+            try:
+                # Call Gemini with the ORIGINAL user query (not the JamAI response)
+                final_answer = handle_fallback(query_text)
+                
+                print(f"Returning Gemini response to frontend")
+                print(f"Final answer preview: {final_answer[:100]}...")
+                
+                return {
+                    "success": True,
+                    "response": final_answer,  # This is the actual answer sent to user
+                    "table_id": table_id,
+                    "fallback_used": True,
+                    "fallback_provider": "Google Gemini"
+                }
+            except Exception as fallback_error:
+                print(f"Fallback failed: {fallback_error}")
+                return {
+                    "success": False,
+                    "response": "Sorry, both JamAI and Gemini fallback failed. Please try again.",
+                    "error": str(fallback_error)
+                }
+        
+        # Return JamAI response normally
         return {
             "success": True,
-            "response": jam_response_text,
-            "table_id": table_id
+            "response": response_text,
+            "table_id": table_id,
+            "fallback_used": False
         }
         
     except Exception as e:
