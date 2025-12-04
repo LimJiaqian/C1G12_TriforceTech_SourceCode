@@ -5,8 +5,7 @@ Handles audio transcription via AssemblyAI and knowledge base updates via JamAI
 
 import os
 import assemblyai as aai
-from jamaibase import JamAI
-from jamaibase import types as p
+from jamaibase import JamAI, protocol as p
 from dotenv import load_dotenv
 from datetime import datetime
 
@@ -14,8 +13,8 @@ load_dotenv()
 
 # Configuration
 ASSEMBLYAI_API_KEY = os.getenv("ASSEMBLYAI_API_KEY")
-VITE_JAM_API_KEY = os.getenv("VITE_JAM_API_KEY")
-VITE_JAM_PROJECT_ID = os.getenv("VITE_JAM_PROJECT_ID")
+JAMAI_API_KEY = os.getenv("VITE_JAM_API_KEY")  # Using VITE_JAM_API_KEY from .env
+JAMAI_PROJECT_ID = os.getenv("VITE_JAM_PROJECT_ID")  # Using VITE_JAM_PROJECT_ID from .env
 KNOWLEDGE_TABLE_ID = "meeting_transcripts"
 
 # Initialize clients
@@ -78,16 +77,16 @@ def upload_to_knowledge_base(transcript_text: str, metadata: dict = None) -> dic
     Raises:
         Exception: If upload fails
     """
-    if not VITE_JAM_API_KEY or not VITE_JAM_PROJECT_ID:
-        raise ValueError("VITE_JAM_API_KEY or VITE_JAM_PROJECT_ID not found in environment variables")
+    if not JAMAI_API_KEY or not JAMAI_PROJECT_ID:
+        raise ValueError("JAMAI_API_KEY or JAMAI_PROJECT_ID not found in environment variables")
     
     try:
         print(f"Uploading to JamAI Knowledge Base (Table: {KNOWLEDGE_TABLE_ID})")
         
         # Initialize JamAI client
         jamai = JamAI(
-            api_key=VITE_JAM_API_KEY,
-            project_id=VITE_JAM_PROJECT_ID
+            api_key=JAMAI_API_KEY,
+            project_id=JAMAI_PROJECT_ID
         )
         
         # Prepare row data
@@ -207,16 +206,16 @@ def query_jamai_chat(query_text: str, table_id: str = "Chatbox") -> dict:
     Raises:
         Exception: If query fails
     """
-    if not VITE_JAM_API_KEY or not VITE_JAM_PROJECT_ID:
-        raise ValueError("VITE_JAM_API_KEY or VITE_JAM_PROJECT_ID not found in environment variables")
+    if not JAMAI_API_KEY or not JAMAI_PROJECT_ID:
+        raise ValueError("JAMAI_API_KEY or JAMAI_PROJECT_ID not found in environment variables")
     
     try:
         print(f"Querying JamAI Action Table: {table_id}")
         
         # Initialize JamAI client
         jamai = JamAI(
-            api_key=VITE_JAM_API_KEY,
-            project_id=VITE_JAM_PROJECT_ID
+            api_key=JAMAI_API_KEY,
+            project_id=JAMAI_PROJECT_ID
         )
         
         # Create request

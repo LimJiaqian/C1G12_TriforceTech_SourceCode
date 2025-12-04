@@ -129,33 +129,23 @@ export default function ChatPanel({ onClose }) {
         <div ref={bottomRef}></div>
       </div>
 
-      {/* WhatsApp-style Input bar */}
-      <div className="p-4 border-t bg-white flex items-center gap-3">
-        {/* Input container with gray background */}
-        <div className="flex-1 bg-gray-100 rounded-full px-5 py-2 flex items-center">
-          <input
-            className="flex-1 bg-transparent outline-none text-gray-800 placeholder-gray-500 disabled:cursor-not-allowed"
-            placeholder={isLoading ? "Processing..." : "Type a message..."}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && !isLoading && input.trim() && sendMessage()}
-            disabled={isLoading}
-          />
-        </div>
-
-        {/* Circular button - Mic or Send based on input */}
-        <button
-          onClick={input.trim() ? sendMessage : null}
+      {/* Input bar */}
+      <div className="p-4 border-t bg-white flex items-center gap-2">
+        <input
+          className="flex-1 p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6C00FF] disabled:bg-gray-50 disabled:cursor-not-allowed"
+          placeholder={isLoading ? "Processing..." : "Ask something..."}
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && !isLoading && sendMessage()}
           disabled={isLoading}
-          className="w-12 h-12 rounded-full bg-[#6C00FF] text-white flex items-center justify-center hover:bg-[#5A32FF] transition disabled:bg-gray-300 disabled:cursor-not-allowed shadow-md"
+        />
+
+        <button
+          onClick={sendMessage}
+          disabled={isLoading || !input.trim()}
+          className="px-5 py-3 bg-[#6C00FF] text-white rounded-lg hover:bg-[#5A32FF] transition disabled:bg-gray-300 disabled:cursor-not-allowed"
         >
-          {isLoading ? (
-            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-          ) : input.trim() ? (
-            <Send size={20} />
-          ) : (
-            <Mic size={20} />
-          )}
+          {isLoading ? "..." : "Send"}
         </button>
       </div>
     </div>

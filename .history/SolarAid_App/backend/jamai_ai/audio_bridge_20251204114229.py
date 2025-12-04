@@ -5,8 +5,7 @@ Handles audio transcription via AssemblyAI and knowledge base updates via JamAI
 
 import os
 import assemblyai as aai
-from jamaibase import JamAI
-from jamaibase import types as p
+from jamaibase import JamAI, protocol as p
 from dotenv import load_dotenv
 from datetime import datetime
 
@@ -14,8 +13,8 @@ load_dotenv()
 
 # Configuration
 ASSEMBLYAI_API_KEY = os.getenv("ASSEMBLYAI_API_KEY")
-VITE_JAM_API_KEY = os.getenv("VITE_JAM_API_KEY")
-VITE_JAM_PROJECT_ID = os.getenv("VITE_JAM_PROJECT_ID")
+JAMAI_API_KEY = os.getenv("VITE_JAM_API_KEY")  # Using VITE_JAM_API_KEY from .env
+JAMAI_PROJECT_ID = os.getenv("VITE_JAM_PROJECT_ID")  # Using VITE_JAM_PROJECT_ID from .env
 KNOWLEDGE_TABLE_ID = "meeting_transcripts"
 
 # Initialize clients
