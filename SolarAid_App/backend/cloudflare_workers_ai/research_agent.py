@@ -28,7 +28,7 @@ class CloudflareResearchAgent:
         system_prompt: Optional[str] = None,
         include_domains: Optional[List[str]] = None,
         exclude_domains: Optional[List[str]] = None,
-        max_search_results: int = 3,
+        max_search_results: int = 2,
         search_depth: str = "basic",
         temperature: float = 0.1,
         max_tokens: int = 800,

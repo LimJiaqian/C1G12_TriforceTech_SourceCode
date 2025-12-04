@@ -107,7 +107,7 @@ const TrendIndicator = ({ trend }) => {
    Goal Comparison Card (Fixed Broken JSX)
 ---------------------------------------------------- */
 const GoalComparisonCard = ({ savedKwh, minRequired, maxNeeded, rank, remaining }) => {
-  const isBehind = remaining > minRequired;
+  const isBehind = remaining < minRequired;
 
   return (
     <div
