@@ -3,8 +3,6 @@ from flask_cors import CORS
 from backend.sealion_ai.area_detection import get_top5_energy_need
 from backend.sealion_ai.thanks_ai import generate_thankyou_message
 from backend.sealion_ai.certificate_generator import generate_certificate
-from backend.analytics import DonationAnalytics
-from backend.gemini_ai.ai_agent import DonationAIAgent
 from backend.database.supabase import supabase
 from backend.cloudflare_workers_ai.prediction_agent import (
     create_prediction_agent_from_env,
@@ -14,13 +12,6 @@ from backend.cloudflare_workers_ai.research_agent import create_energy_agent_fro
 
 app = Flask(__name__)
 CORS(app)
-
-# Initialize analytics and AI agent for prediction feature
-CSV_PATH = "backend/dataset/donations.csv"
-analytics = DonationAnalytics(CSV_PATH)
-analytics.load_data()
-agent = DonationAIAgent()
-
 
 @app.post("/api/login")
 def login():

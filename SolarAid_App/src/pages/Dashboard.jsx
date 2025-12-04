@@ -1,10 +1,10 @@
-import React, { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { MessageCircle } from "lucide-react";
 import Overview from "./Overview";
 import Leaderboard from "./Leaderboard";
 import SmartPrediction from "./SmartPrediction";
 import ChatPanel from "./ChatPanel";
-import { useNavigate } from "react-router-dom";
-import { MessageCircle } from "lucide-react";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -24,8 +24,9 @@ export default function Dashboard() {
     if (leftRef.current) setLeftHeight(leftRef.current.offsetHeight);
   }, []);
 
-    useEffect(() => {
-    async function fetchData() {
+  // Load smart prediction data from backend API
+  useEffect(() => {
+    async function fetchAIPrediction() {
       if (!myUser) return;
 
       try {
@@ -38,12 +39,12 @@ export default function Dashboard() {
         const data = await res.json();
         setAnalysis(data);
       } catch (err) {
-        console.error("Error fetching AI analysis data:", err);
+        console.error("Error fetching AI prediction data:", err);
         setError(err.message);
       }
     }
 
-    fetchData();
+    fetchAIPrediction();
   }, [myUser]);
 
   // Load electricity data from backend API
@@ -70,12 +71,13 @@ export default function Dashboard() {
     loadElectricity();
   }, [myUser]);
 
+  // Load leaderboard, user, person ahead info from backend API
   useEffect(() => {
     async function fetchAll() {
 
       const MY_USER_ID = parseInt(localStorage.getItem("user_id"));
       if (!MY_USER_ID) {
-        console.error("❌ Missing user_id in localStorage!");
+        console.error("Missing user_id in localStorage!");
         return;
       }
 
@@ -162,7 +164,7 @@ export default function Dashboard() {
 
           {/* LEFT */}
           <div ref={leftRef} className="flex-1 w-full">
-            <Overview myUser={myUser} analysis={analysis} capacity={capacity} monthlyDonation={monthlyDonation} remaining={remaining} loading={loading}/>
+            <Overview myUser={myUser} analysis={analysis} capacity={capacity} monthlyDonation={monthlyDonation} remaining={remaining} loading={loading} />
           </div>
 
           {/* RIGHT */}
@@ -170,14 +172,13 @@ export default function Dashboard() {
             topUsers={topUsers}
             myUser={myUser}
             personAhead={personAhead}
-            leftHeight={leftHeight} 
+            leftHeight={leftHeight}
           />
         </div>
-
-
+        
         <div style={{ marginTop: "2rem" }}>
           <div className="mb-20">
-            <SmartPrediction myUser={myUser} analysis={analysis} remaining={remaining}/>
+            <SmartPrediction myUser={myUser} analysis={analysis} remaining={remaining} />
           </div>
         </div>
       </div>

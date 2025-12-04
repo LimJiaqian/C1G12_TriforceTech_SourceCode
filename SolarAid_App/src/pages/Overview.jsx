@@ -4,14 +4,8 @@ import { useNavigate } from "react-router-dom";
 
 export default function Overview({ myUser, analysis, capacity, monthlyDonation, remaining, loading }) {
   const navigate = useNavigate();
-
-  const [capacity, setCapacity] = useState(null);
-  const [monthlyDonation, setMonthlyDonation] = useState(null);
-  const [remaining, setRemaining] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [lastDonation, setLastDonation] = useState(null);
   const [txnLoading, setTxnLoading] = useState(true);
-
 
   // Load electricity data from backend API
   useEffect(() => {
@@ -19,20 +13,6 @@ export default function Overview({ myUser, analysis, capacity, monthlyDonation, 
 
     async function loadAll() {
       try {
-        // --- Load electricity summary ---
-        const elecRes = await fetch(
-          `http://127.0.0.1:5000/api/user-electricity/${myUser.User_ID}`
-        );
-        const elecData = await elecRes.json();
-
-        if (elecRes.ok) {
-          setCapacity(elecData.capacity);
-          setMonthlyDonation(elecData.donated);
-          setRemaining(elecData.remaining);
-        } else {
-          console.error("Electricity API error:", elecData);
-        }
-
         // --- Load last donation ---
         const txnRes = await fetch(
           `http://127.0.0.1:5000/api/transactions/${myUser.User_ID}`
@@ -46,7 +26,6 @@ export default function Overview({ myUser, analysis, capacity, monthlyDonation, 
       } catch (err) {
         console.error("Overview API error:", err);
       } finally {
-        setLoading(false);
         setTxnLoading(false);
       }
     }
@@ -258,7 +237,7 @@ export default function Overview({ myUser, analysis, capacity, monthlyDonation, 
             </div>
 
             {/* Recent donation line */}
-            <p className="text-gray-700 text-sm pl-5">
+            <div className="text-gray-700 text-sm pl-5">
               {txnLoading ? (
                 "Loading recent donation..."
               ) : lastDonation ? (
@@ -275,7 +254,7 @@ export default function Overview({ myUser, analysis, capacity, monthlyDonation, 
               ) : (
                 "You haven't made any donations yet."
               )}
-            </p>
+            </div>
           </div>
       </div>
     </div>
