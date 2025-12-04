@@ -257,53 +257,36 @@ def query_jamai_chat(query_text: str, table_id: str = "Chatbox") -> dict:
             request=add_request
         )
         
-        # --- ROBUST PARSING LOGIC ---
-        # Handles both Dictionary (old SDK) and Pydantic Model (new SDK)
-        response_text = ""
-        
-        if response.rows:
+        # Extract response using dot notation (as per JamAI API contract)
+        if hasattr(response, 'rows') and len(response.rows) > 0:
             row = response.rows[0]
-            columns = row.columns
-            
-            # Handle both Dictionary and Pydantic Model
-            if isinstance(columns, dict):
-                # Dictionary access
-                target_col = columns.get("Final_response")
-            else:
-                # Pydantic Model access
-                target_col = getattr(columns, "Final_response", None)
-
-            # Extract actual text value safely
-            if target_col:
-                if isinstance(target_col, dict) and "value" in target_col:
-                    response_text = str(target_col["value"])
-                elif hasattr(target_col, "value"):
-                    response_text = str(target_col.value)
+            # Use dot notation to access columns
+            if hasattr(row, 'columns'):
+                columns = row.columns
+                # Access Final_response column
+                if 'Final_response' in columns:
+                    final_response_col = columns['Final_response']
+                    # Extract value from column
+                    response_text = final_response_col.get('value') if isinstance(final_response_col, dict) else str(final_response_col)
                 else:
-                    response_text = str(target_col)
+                    response_text = "No Final_response column found in table"
             else:
-                response_text = "Error: 'Final_response' column missing."
+                response_text = "No columns found in response"
         else:
-            response_text = "Error: No response received from JamAI."
-        # ---------------------------------
+            response_text = "No rows returned from Action Table"
         
-        print(f"Received response from JamAI: {response_text[:100]}...")
+        # Extract clean text (strip any whitespace)
+        jam_response_text = response_text.strip()
+        
+        print(f"Received response from JamAI: {jam_response_text[:100]}...")
         
         # Return JamAI response directly
         return {
             "success": True,
-            "response": response_text.strip(),
+            "response": jam_response_text,
             "table_id": table_id
         }
         
     except Exception as e:
         print(f"JamAI query error: {e}")
-        import traceback
-        traceback.print_exc()
-        
-        # Return safe fallback so frontend doesn't crash
-        return {
-            "success": False,
-            "response": "I'm having trouble connecting to my brain right now. Please try again in a moment.",
-            "error": str(e)
-        }
+        raise Exception(f"Failed to query JamAI Action Table: {str(e)}")

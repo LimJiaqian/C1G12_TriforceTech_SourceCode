@@ -287,7 +287,7 @@ def query_jamai_chat(query_text: str, table_id: str = "Chatbox") -> dict:
             response_text = "Error: No response received from JamAI."
         # ---------------------------------
         
-        print(f"Received response from JamAI: {response_text[:100]}...")
+        print(f"✅ Received response from JamAI: {response_text[:100]}...")
         
         # Return JamAI response directly
         return {
@@ -297,7 +297,7 @@ def query_jamai_chat(query_text: str, table_id: str = "Chatbox") -> dict:
         }
         
     except Exception as e:
-        print(f"JamAI query error: {e}")
+        print(f"❌ JamAI query error: {e}")
         import traceback
         traceback.print_exc()
         

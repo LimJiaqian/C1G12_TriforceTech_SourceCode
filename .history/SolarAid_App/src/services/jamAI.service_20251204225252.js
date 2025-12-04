@@ -172,46 +172,6 @@ function fetchWithTimeout(url, options, timeout) {
 }
 
 /**
- * Sends audio to backend for transcription and RAG processing
- * 
- * @param {Blob} audioBlob - The recorded audio blob
- * @returns {Promise<string>} - The AI's response text
- * @throws {Error} - If the upload or processing fails
- */
-export async function sendAudioToBackend(audioBlob) {
-  const formData = new FormData();
-  formData.append("audio", audioBlob, "recording.webm");
-
-  console.log("📤 Sending audio to backend:");
-  console.log("- Blob size:", audioBlob.size, "bytes");
-  console.log("- Blob type:", audioBlob.type);
-
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/chat-enquiry`, {
-      method: "POST",
-      body: formData,
-    });
-
-    console.log("📥 Backend response status:", response.status);
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("❌ Backend error response:", errorText);
-      throw new Error(`Server error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    console.log("✅ Backend response data:", data);
-
-    // Return just the AI text response
-    return data.response || "I processed your voice message successfully! 🎉";
-  } catch (error) {
-    console.error("❌ Audio Upload Error:", error);
-    throw error;
-  }
-}
-
-/**
  * Test the Jam AI connection
  * Useful for debugging
  */

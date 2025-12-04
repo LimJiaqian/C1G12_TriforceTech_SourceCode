@@ -127,40 +127,72 @@ export default function ChatPanel({ onClose }) {
 
   /**
    * AUDIO MESSAGE HANDLER
-   * Clean handler function using the service layer
-   * Sends recorded audio to backend for transcription and RAG processing
+   * Sends recorded audio to /api/chat-enquiry endpoint
+   * Backend handles AssemblyAI transcription + JamAI RAG processing
    */
-  async function handleAudioSend(audioBlob) {
+  async function sendAudioMessage(audioBlob) {
     setIsLoading(true);
-    
-    // Add "Voice message" bubble immediately
-    setMessages((prev) => [...prev, { sender: "user", text: "🎤 Voice message" }]);
 
     try {
-      // Call the service
-      const aiResponseText = await sendAudioToBackend(audioBlob);
+      // Add user message indicator
+      setMessages((prev) => [...prev, { sender: "user", text: "🎤 Voice message" }]);
+
+      // Prepare FormData with audio file
+      const formData = new FormData();
+      formData.append("audio", audioBlob, "recording.webm");
+
+      // Debug: Log FormData contents
+      console.log("📤 Sending audio to backend:");
+      console.log("- Blob size:", audioBlob.size, "bytes");
+      console.log("- Blob type:", audioBlob.type);
+      console.log("- Filename: recording.webm");
+
+      // Send to backend
+      const response = await fetch("http://127.0.0.1:5000/api/chat-enquiry", {
+        method: "POST",
+        body: formData,
+      });
+
+      // Debug: Log response status
+      console.log("📥 Backend response status:", response.status);
+
+      if (!response.ok) {
+        // Try to get error details from response
+        const errorText = await response.text();
+        console.error("❌ Backend error response:", errorText);
+        throw new Error(`Server error: ${response.status} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      console.log("✅ Backend response data:", data);
 
       // Add AI response to chat
       setMessages((prev) => [
         ...prev,
-        { sender: "ai", text: aiResponseText }
+        { 
+          sender: "ai", 
+          text: data.response || "I processed your voice message successfully! 🎉" 
+        }
       ]);
     } catch (error) {
       console.error("❌ Audio message error:", error);
       
-      // Friendly error message
-      let errorMsg = "Sorry, I couldn't hear you clearly. ";
+      // More detailed error message
+      let errorMsg = "Sorry, I couldn't process your voice message. ";
       if (error.message.includes("500")) {
-        errorMsg = "I'm having trouble processing your voice message right now. Please try typing your question instead.";
+        errorMsg += "The server encountered an internal error. Please check the Flask terminal for details.";
       } else if (error.message.includes("Failed to fetch")) {
-        errorMsg = "Cannot connect to the server. Please make sure the backend is running.";
+        errorMsg += "Cannot connect to the backend server. Is it running on port 5000?";
       } else {
-        errorMsg += "Please try again or type your question. 🙏";
+        errorMsg += "Please try typing your question instead. 🙏";
       }
       
       setMessages((prev) => [
         ...prev,
-        { sender: "ai", text: errorMsg }
+        { 
+          sender: "ai", 
+          text: errorMsg
+        }
       ]);
     } finally {
       setIsLoading(false);
