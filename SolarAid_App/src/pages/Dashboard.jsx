@@ -15,6 +15,10 @@ export default function Dashboard() {
   const [myUser, setMyUser] = useState(null);
   const [personAhead, setPersonAhead] = useState(null);
   const [analysis, setAnalysis] = useState(null);
+  const [capacity, setCapacity] = useState(null);
+  const [monthlyDonation, setMonthlyDonation] = useState(null);
+  const [remaining, setRemaining] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (leftRef.current) setLeftHeight(leftRef.current.offsetHeight);
@@ -40,6 +44,30 @@ export default function Dashboard() {
     }
 
     fetchData();
+  }, [myUser]);
+
+  // Load electricity data from backend API
+  useEffect(() => {
+    async function loadElectricity() {
+      if (!myUser) return;
+
+      const res = await fetch(
+        `http://127.0.0.1:5000/api/user-electricity/${myUser.User_ID}`
+      );
+      const data = await res.json();
+
+      if (res.ok) {
+        setCapacity(data.capacity);
+        setMonthlyDonation(data.donated);
+        setRemaining(data.remaining); // <-- capacity - donation (CALCULATED)
+      } else {
+        console.error("Backend error:", data);
+      }
+
+      setLoading(false);
+    }
+
+    loadElectricity();
   }, [myUser]);
 
   useEffect(() => {
@@ -133,8 +161,8 @@ export default function Dashboard() {
         <div className="flex gap-8 mt-6 items-start flex-col lg:flex-row">
 
           {/* LEFT */}
-          <div ref={leftRef} className="flex-1">
-            <Overview myUser={myUser} analysis={analysis}/>
+          <div ref={leftRef} className="flex-1 w-full">
+            <Overview myUser={myUser} analysis={analysis} capacity={capacity} monthlyDonation={monthlyDonation} remaining={remaining} loading={loading}/>
           </div>
 
           {/* RIGHT */}
@@ -149,7 +177,7 @@ export default function Dashboard() {
 
         <div style={{ marginTop: "2rem" }}>
           <div className="mb-20">
-            <SmartPrediction myUser={myUser} analysis={analysis}/>
+            <SmartPrediction myUser={myUser} analysis={analysis} remaining={remaining}/>
           </div>
         </div>
       </div>

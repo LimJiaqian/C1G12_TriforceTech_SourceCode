@@ -2,37 +2,8 @@ import { useState, useEffect } from "react";
 import { Zap, Leaf } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-export default function Overview({ myUser, analysis }) {
+export default function Overview({ myUser, analysis, capacity, monthlyDonation, remaining, loading }) {
   const navigate = useNavigate();
-
-  const [capacity, setCapacity] = useState(null);
-  const [monthlyDonation, setMonthlyDonation] = useState(null);
-  const [remaining, setRemaining] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  // Load electricity data from backend API
-  useEffect(() => {
-    async function loadElectricity() {
-      if (!myUser) return;
-
-      const res = await fetch(
-        `http://127.0.0.1:5000/api/user-electricity/${myUser.User_ID}`
-      );
-      const data = await res.json();
-
-      if (res.ok) {
-        setCapacity(data.capacity);
-        setMonthlyDonation(data.donated);
-        setRemaining(data.remaining); // <-- capacity - donation (CALCULATED)
-      } else {
-        console.error("Backend error:", data);
-      }
-
-      setLoading(false);
-    }
-
-    loadElectricity();
-  }, [myUser]);
 
   // Impact calculator
   const calcImpact = (kwh) => {
@@ -45,7 +16,15 @@ export default function Overview({ myUser, analysis }) {
     return { hours, co2, trees };
   };
 
-  const [donateAmount, setDonateAmount] = useState(50);
+  const [donateAmount, setDonateAmount] = useState(
+    analysis?.minRequired ? Number(analysis.minRequired) : 0
+  );
+
+  useEffect(() => {
+    if (analysis?.minRequired) {
+      setDonateAmount(Number(analysis.minRequired));
+    }
+  }, [analysis]);
 
   if (!myUser || loading || capacity === null) {
     return (
@@ -140,14 +119,14 @@ export default function Overview({ myUser, analysis }) {
         {/* Slider */}
         <div className="mb-6">
           <p className="font-semibold mb-2 text-gray-800">
-            Select Donation Amount: <span className="text-[#3f4cc6ff]">{analysis?.minRequired ? Number(analysis.minRequired) : donateAmount} kWh</span>
+            Select Donation Amount: <span className="text-[#3f4cc6ff]">{donateAmount} kWh</span>
           </p>
 
           <input
             type="range"
             min={0}
             max={remaining}
-            value={analysis?.minRequired ? Number(analysis.minRequired) : donateAmount}
+            value={donateAmount}
             onChange={(e) => setDonateAmount(Number(e.target.value))}
             className="
               w-full
@@ -160,11 +139,12 @@ export default function Overview({ myUser, analysis }) {
               relative
             "
             style={{
-              background: `linear-gradient(to right, #3f4cc6ff ${((analysis?.minRequired ? Number(analysis.minRequired) : donateAmount)/remaining)*100}%, #E5E7EB ${(donateAmount/remaining)*100}%)`,
+              background: `linear-gradient(to right, #3f4cc6ff ${((donateAmount)/remaining)*100}%, #E5E7EB ${(donateAmount/remaining)*100}%)`,
               borderRadius: "50px"
             }}
           />
 
+         <span style={{ color: "gray" , fontSize:"12px"}}>Our AI suggest you donate a minimum of {donateAmount} kWh</span>
           <style>{`
             input[type="range"]::-webkit-slider-thumb {
               -webkit-appearance: none;

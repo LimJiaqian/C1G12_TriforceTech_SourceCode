@@ -29,7 +29,7 @@ class CloudflareResearchAgent:
         include_domains: Optional[List[str]] = None,
         exclude_domains: Optional[List[str]] = None,
         max_search_results: int = 3,
-        search_depth: str = "advanced",
+        search_depth: str = "basic",
         temperature: float = 0.1,
         max_tokens: int = 800,
         verbose: bool = True
@@ -245,6 +245,7 @@ class CloudflareResearchAgent:
         """
         try:
             search_results = self.search_tool.invoke({"query": query})
+            print("***** search results:", search_results)
             
             if isinstance(search_results, dict) and "results" in search_results:
                 results = search_results["results"]
