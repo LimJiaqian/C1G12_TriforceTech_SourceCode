@@ -502,7 +502,7 @@ def create_energy_agent_from_env(verbose: bool = True, **kwargs) -> MalaysianEne
     )
 
 
-# --- Example Usage ---
+# --- Example Usage For Debugging Purposes ---
 if __name__ == "__main__":
     print("="*70)
     print("EXAMPLE: Malaysian Energy Research Agent")

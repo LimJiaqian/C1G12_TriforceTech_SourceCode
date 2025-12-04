@@ -206,7 +206,7 @@ class CloudflareSQLAgent:
             if self.verbose:
                 print(f"\nQuery Results:\n{results}")
 
-            # Step 3: Generate natural language answer
+            # Step 3: Generate natural language answer / JSON formatted output
             answer_chain = self.answer_prompt | self.llm
             final_answer = answer_chain.invoke(
                 {"question": question, "sql": sql, "results": results, "output_format": output_format}
@@ -269,7 +269,7 @@ def create_agent_from_env(
     )
 
 
-# --- Example Usage ---
+# --- Example Usage For Debugging Purposes ---
 if __name__ == "__main__":
     agent = create_agent_from_env(verbose=True)
 

@@ -4,12 +4,11 @@ import { useEffect, useState } from "react";
 const ACCENT_COLOR_HEX = "#4f46e5";
 const ACCENT_COLOR = "text-indigo-600";
 const SECTION_BG = "bg-indigo-50";
-const TIPS_BG = "bg-white";
 
 /* ----------------------------------------------------
    Donut Chart Component
 ---------------------------------------------------- */
-const DonutChart = ({ percentage, color, label, insight }) => {
+const DonutChart = ({ percentage, color, textColor, label, insight }) => {
   const radius = 50;
   const circumference = 2 * Math.PI * radius;
 
@@ -45,7 +44,7 @@ const DonutChart = ({ percentage, color, label, insight }) => {
         </svg>
 
         <div className="absolute inset-0 flex items-center justify-center">
-          <p className={`text-2xl font-bold ${ACCENT_COLOR}`}>
+          <p className={`text-2xl font-bold`} style={{ color: textColor }}>
             {percentage}
             <span className="text-lg">%</span>
           </p>
@@ -108,18 +107,25 @@ const TrendIndicator = ({ trend }) => {
    Goal Comparison Card (Fixed Broken JSX)
 ---------------------------------------------------- */
 const GoalComparisonCard = ({ savedKwh, minRequired, maxNeeded, rank, remaining }) => {
-  const gapToMin = minRequired - savedKwh;
-  const isBehind = gapToMin > 0;
+  const isBehind = remaining > minRequired;
 
   return (
     <div
-      className={`mt-6 p-5 rounded-xl border-2 shadow-lg bg-white ${isBehind ? "border-[#6C00FF] text-[#6C00FF]" : "border-green-300"
+      className={`mt-6 p-5 rounded-xl border-2 shadow-lg bg-white ${isBehind ? "border-[#6C00FF]" : "border-green-300"
         }`}
     >
       <p className="text-lg font-bold">
-        {isBehind
-          ? `You need about ${(maxNeeded + minRequired) / 2} kWh more to reach next rank`
-          : `You're ahead of the minimum goal for Rank #${rank}!`}
+        {isBehind ? (
+          <>
+            You need to save about{" "}
+            <span className="text-3xl font-extrabold text-[#6C00FF] m-2">
+              {(maxNeeded + minRequired) / 2} kWh
+            </span>{" "}
+            to surpass Rank #{rank} next month
+          </>
+        ) : (
+          <>You're ahead of the minimum goal for Rank #{rank}!</>
+        )}
       </p>
 
       <p className="text-sm mt-2 text-gray-600">
@@ -197,11 +203,11 @@ export default function SmartPrediction({ myUser, analysis, remaining }) {
         <span className="bg-indigo-600 text-white text-xs font-bold px-2 py-0.5 rounded-full shadow-md">
           Rank #{myUser.Rank}
         </span>
-        Save{" "}
+        Donate{" "}
         <span className={`font-semibold ${ACCENT_COLOR}`}>
           {analysis.savedKwh} kWh
         </span>{" "}
-        next month to climb!
+        now to climb!
       </p>
 
       {/* Insights Area */}
@@ -226,10 +232,10 @@ export default function SmartPrediction({ myUser, analysis, remaining }) {
             <DonutChart
               percentage={analysis.rankProbability}
               color={ACCENT_COLOR_HEX}
+              textColor="#f97316"
               label="Probability of Overtaking"
               insight={`Based on your current trend, you have a ${analysis.rankProbability}% chance of reaching rank #${myUser.Rank - 1
                 } next month.`}
-              percentageColor="#f97316"
             />
             <span style={{ fontSize: "10px", fontWeight: "bold" }}>Actionable Tip:</span>
             <ul style={{ fontSize: "8px" }}>
@@ -256,6 +262,7 @@ export default function SmartPrediction({ myUser, analysis, remaining }) {
             <DonutChart
               percentage={analysis.competitorMomentum}
               color="#f97316"
+              textColor={ACCENT_COLOR_HEX}
               label={`Rank #${myUser.Rank - 1} Momentum`}
               // --- Conditional Insight Implementation ---
               insight={analysis.competitorMomentum > 70

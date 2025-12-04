@@ -1,6 +1,6 @@
 import os
 import json
-from typing import Optional, Dict, Any, List
+from typing import Dict, Any
 from datetime import date
 from dotenv import load_dotenv
 from langchain_cloudflare import ChatCloudflareWorkersAI
@@ -19,10 +19,6 @@ class CloudflareEnergyPredictionAgent:
         - Analyzes user and competitor donation patterns combined with external research to generate personalized energy-saving predictions and recommendations.
 
     """
-
-    DEFAULT_MODEL = "@cf/meta/llama-3.1-8b-instruct"
-    DEFAULT_TEMPERATURE = 0.3
-    DEFAULT_MAX_TOKENS = 1000
     MIN_PROBABILITY = 0
     MAX_PROBABILITY = 100
 
@@ -32,9 +28,9 @@ class CloudflareEnergyPredictionAgent:
         research_agent,
         account_id: str,
         api_token: str,
-        model: str = DEFAULT_MODEL,
-        temperature: float = DEFAULT_TEMPERATURE,
-        max_tokens: int = DEFAULT_MAX_TOKENS,
+        model: str = "@cf/meta/llama-3.1-8b-instruct",
+        temperature: float = 0.3,
+        max_tokens: int = 1000,
         verbose: bool = True,
     ):
         """
@@ -49,8 +45,8 @@ class CloudflareEnergyPredictionAgent:
         if not account_id or not api_token:
             raise ValueError("Cloudflare account_id and api_token are required")
 
-        self.llm = self._create_llm(model, account_id, api_token, temperature, max_tokens)
-        self.prediction_prompt = self._get_prediction_prompt()
+        self.llm = self.create_llm(model, account_id, api_token, temperature, max_tokens)
+        self.prediction_prompt = self.get_prediction_prompt()
         self.prediction_chain = self.prediction_prompt | self.llm | JsonOutputParser()
 
         if self.verbose:
@@ -59,7 +55,7 @@ class CloudflareEnergyPredictionAgent:
             print(f"  Temperature: {temperature}")
             print(f"  Output: JSON format\n")
 
-    def _create_llm(
+    def create_llm(
         self,
         model: str,
         account_id: str,
@@ -80,58 +76,58 @@ class CloudflareEnergyPredictionAgent:
             model_kwargs={"streaming": False},
         )
 
-    def _get_prediction_prompt(self) -> ChatPromptTemplate:
+    def get_prediction_prompt(self) -> ChatPromptTemplate:
         """
         Create the prompt template for AI predictions.
         
         """
         SYSTEM_PROMPT = """You are an AI energy advisor specializing in Malaysian energy-saving recommendations.
 
-You analyze donation/saving patterns and external factors to provide accurate predictions.
+        You analyze donation/saving patterns and external factors to provide accurate predictions.
 
-INPUT DATA:
-1. User Profile:
-   - user_id, donate_amount, state, district
-   - last_donation_date, donations_per_month, donation_averages
+        INPUT DATA:
+        1. User Profile:
+            - user_id, donate_amount, state, district
+            - last_donation_date, donations_per_month, donation_averages
 
-2. Competitor Profile:
-   - Donation amounts and patterns of the user ranked immediately above
+        2. Competitor Profile:
+            - Donation amounts and patterns of the user ranked immediately above
 
-3. External Context:
-   - Weather trends, electricity tariffs, holidays, seasonal events in Malaysia
+        3. External Context:
+            - Weather trends, electricity tariffs, holidays, seasonal events in Malaysia
 
-OUTPUT REQUIREMENTS:
-Generate a JSON object with the following fields:
+        OUTPUT REQUIREMENTS:
+        Generate a JSON object with the following fields:
 
-- predicted_difference (float): Gap between competitor and user donations
-- predicted_increase (float): Estimated competitor's next donation increase
-- userTrend (float): User's donation trend (-1 = decreasing, 0 = stable, 1 = increasing)
-- competitorMomentum (int): Probability (0-100) that competitor will donate next month
-- rankProbability (int): Probability (0-100) user can climb one rank next month
-- tips (array): Exactly 3 actionable, location-specific energy-saving recommendations to help the user climb the leaderboard
+        - predicted_difference (float): Gap between competitor and user donations
+        - predicted_increase (float): Estimated competitor's next donation increase
+        - userTrend (float): User's donation trend (-1 = decreasing, 0 = stable, 1 = increasing)
+        - competitorMomentum (int): Probability (0-100) that competitor will donate next month
+        - rankProbability (int): Probability (0-100) user can climb one rank next month
+        - tips (array): Exactly 3 actionable, location-specific energy-saving recommendations to help the user climb the leaderboard
 
-IMPORTANT:
-- Return ONLY valid JSON, no markdown or explanations
-- Base predictions on data patterns and external context
-- Keep tips practical and relevant to the user's location
-- Consider seasonal factors (monsoon, hot season, holidays)"""
+        IMPORTANT:
+        - Return ONLY valid JSON, no markdown or explanations
+        - Base predictions on data patterns and external context
+        - Keep tips practical and relevant to the user's location
+        - Consider seasonal factors (monsoon, hot season, holidays)"""
 
         USER_PROMPT = """Current Date: {current_date}
 
-USER & COMPETITOR DATA:
-{donation_context}
+        USER & COMPETITOR DATA:
+        {donation_context}
 
-EXTERNAL CONTEXT:
-{external_context}
+        EXTERNAL CONTEXT:
+        {external_context}
 
-Generate prediction JSON with: predicted_difference, predicted_increase, userTrend, competitorMomentum, rankProbability, tips"""
+        Generate prediction JSON with: predicted_difference, predicted_increase, userTrend, competitorMomentum, rankProbability, tips"""
 
         return ChatPromptTemplate.from_messages([
             ("system", SYSTEM_PROMPT),
             ("user", USER_PROMPT)
         ])
 
-    def _get_donation_context(self, user_id: str) -> Dict[str, Any]:
+    def get_donation_context(self, user_id: str) -> Dict[str, Any]:
         """
         Fetch comprehensive donation context for a user.
 
@@ -189,7 +185,7 @@ Generate prediction JSON with: predicted_difference, predicted_increase, userTre
         except (json.JSONDecodeError, KeyError, TypeError) as e:
             raise ValueError(f"Failed to parse donation context for user {user_id}: {str(e)}")
 
-    def _get_external_context(self, state: str, district: str) -> str:
+    def _et_external_context(self, state: str, district: str) -> str:
         """
         Retrieve location-specific external context.
 
@@ -210,7 +206,7 @@ Generate prediction JSON with: predicted_difference, predicted_increase, userTre
                 print(f"Warning: Could not fetch external context: {str(e)}\n")
             return f"External context unavailable for {district}, {state}"
 
-    def _get_competitor_context(self, user_id: str) -> Dict[str, Any]:
+    def get_competitor_context(self, user_id: str) -> Dict[str, Any]:
         """
         Fetch donation context of the user ranked immediately above.
 
@@ -254,14 +250,14 @@ Generate prediction JSON with: predicted_difference, predicted_increase, userTre
             competitor_id = user_id
 
         # Fetch full competitor context
-        context = self._get_donation_context(competitor_id)
+        context = self.get_donation_context(competitor_id)
         
         if self.verbose:
             print(f"✓ Competitor context retrieved (User {competitor_id})\n")
         
         return context
 
-    def _validate_and_sanitize_prediction(self, ai_result: Dict[str, Any]) -> Dict[str, Any]:
+    def validate_and_sanitize_prediction(self, ai_result: Dict[str, Any]) -> Dict[str, Any]:
         """
         Validate and sanitize AI-generated prediction values.
 
@@ -314,13 +310,13 @@ Generate prediction JSON with: predicted_difference, predicted_increase, userTre
                 print(f"{'='*70}\n")
 
             # Step 1: Fetch user context
-            user_context = self._get_donation_context(user_id)
+            user_context = self.get_donation_context(user_id)
             user_total = float(user_context.get("Donate_Amount", 0))
             user_state = user_context.get("state", "Selangor")
             user_district = user_context.get("district", "Petaling")
 
             # Step 2: Fetch competitor context
-            competitor_context = self._get_competitor_context(user_id)
+            competitor_context = self.get_competitor_context(user_id)
             competitor_total = float(competitor_context.get("Donate_Amount", user_total))
             competitor_state = competitor_context.get("state", user_state)
             competitor_district = competitor_context.get("district", user_district)
@@ -330,11 +326,11 @@ Generate prediction JSON with: predicted_difference, predicted_increase, userTre
             competitor_external = "No location data available"
             
             if user_state and user_state != "Unknown" and user_district and user_district != "Unknown":
-                user_external = self._get_external_context(user_state, user_district)
+                user_external = self._et_external_context(user_state, user_district)
             
             if (competitor_state and competitor_state != "Unknown" and 
                 competitor_district and competitor_district != "Unknown"):
-                competitor_external = self._get_external_context(competitor_state, competitor_district)
+                competitor_external = self._et_external_context(competitor_state, competitor_district)
 
             # Step 4: Prepare AI input
             current_date = date.today().strftime("%B %d, %Y")
@@ -377,11 +373,9 @@ Generate prediction JSON with: predicted_difference, predicted_increase, userTre
                 print("Generating AI prediction...\n")
             
             ai_result = self.prediction_chain.invoke(model_input)
-            validated_result = self._validate_and_sanitize_prediction(ai_result)
+            validated_result = self.validate_and_sanitize_prediction(ai_result)
 
             # Step 6: Calculate final metrics with safety rules
-            predicted_diff = validated_result["predicted_difference"]
-            
             # Ensure positive values and apply +1 kWh buffer to guarantee rank climb
             savedKwh = max(abs(competitor_total - user_total) + 1, 1.0)
             minRequired = round(savedKwh * 1.05, 2)  # 5% safety buffer
@@ -445,8 +439,12 @@ def create_prediction_agent_from_env(
     )
 
 
+# --- Example Usage For Debugging Purposes ---
 if __name__ == "__main__":
-    """Example usage of the Energy Prediction Agent."""
+    """
+    Example usage of the Energy Prediction Agent.
+    
+    """
     print("=" * 70)
     print("ENERGY SAVINGS PREDICTION AGENT - EXAMPLE")
     print("=" * 70)

@@ -119,7 +119,7 @@ def leaderboard():
         return jsonify({"error": str(e)}), 500
 
 
-@app.get("/user/<int:user_id>/position")
+@app.get("/api//user/<int:user_id>/position")
 def get_user_position(user_id):
     try:
         # Get all users sorted by donation
@@ -151,7 +151,7 @@ def get_user_position(user_id):
         return jsonify({"error": str(e)}), 500
 
 
-@app.get("/user/<int:user_id>/previous")
+@app.get("/api/user/<int:user_id>/previous")
 def get_previous_ranker(user_id):
     try:
         result = (
@@ -234,7 +234,7 @@ prediction_agent = create_prediction_agent_from_env(
 )
 
 
-@app.route("/predict/<int:user_id>", methods=["GET"])
+@app.route("/api/predict/<int:user_id>", methods=["GET"])
 def get_prediction(user_id):
     """
     Analyzes user and competitor data, and external context to generate

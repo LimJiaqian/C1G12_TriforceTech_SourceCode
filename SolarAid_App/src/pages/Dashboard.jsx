@@ -31,7 +31,7 @@ export default function Dashboard() {
 
       try {
         const res = await fetch(
-          `http://127.0.0.1:5000/predict/${myUser.User_ID}`
+          `http://127.0.0.1:5000/api/predict/${myUser.User_ID}`
         );
 
         if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
@@ -88,12 +88,12 @@ export default function Dashboard() {
         setTopUsers(data.leaderboard);
 
         // 2. User info
-        res = await fetch(`http://127.0.0.1:5000/user/${MY_USER_ID}/position`);
+        res = await fetch(`http://127.0.0.1:5000/api/user/${MY_USER_ID}/position`);
         let myData = await res.json();
         setMyUser(myData);
 
         // 3. Person ahead info
-        const resPrev = await fetch(`http://127.0.0.1:5000/user/${MY_USER_ID}/previous`);
+        const resPrev = await fetch(`http://127.0.0.1:5000/api/user/${MY_USER_ID}/previous`);
         if (resPrev.ok) {
           setPersonAhead(await resPrev.json());
         }

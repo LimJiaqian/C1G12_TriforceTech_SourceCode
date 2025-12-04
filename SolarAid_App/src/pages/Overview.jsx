@@ -7,7 +7,7 @@ export default function Overview({ myUser, analysis, capacity, monthlyDonation, 
   const [lastDonation, setLastDonation] = useState(null);
   const [txnLoading, setTxnLoading] = useState(true);
 
-  // Load electricity data from backend API
+  // Load last donation from backend API
   useEffect(() => {
     if (!myUser) return;
 
@@ -168,12 +168,12 @@ export default function Overview({ myUser, analysis, capacity, monthlyDonation, 
               relative
             "
             style={{
-              background: `linear-gradient(to right, #3f4cc6ff ${((donateAmount)/remaining)*100}%, #E5E7EB ${(donateAmount/remaining)*100}%)`,
+              background: `linear-gradient(to right, #3f4cc6ff ${((donateAmount) / remaining) * 100}%, #E5E7EB ${(donateAmount / remaining) * 100}%)`,
               borderRadius: "50px"
             }}
           />
 
-         <span style={{ color: "gray" , fontSize:"12px"}}>Our AI suggest you donate a minimum of {donateAmount} kWh</span>
+          <span style={{ color: "gray", fontSize: "12px" }}>Our AI suggest you donate a minimum of {donateAmount} kWh</span>
           <style>{`
             input[type="range"]::-webkit-slider-thumb {
               -webkit-appearance: none;
@@ -224,38 +224,38 @@ export default function Overview({ myUser, analysis, capacity, monthlyDonation, 
           Donate Now
         </button>
 
-      {/* --- Separate Recent Donation / History Box --- */}
-          <div className="bg-[#3f4cc6ff]/20 shadow-md rounded-xl p-6 w-full mt-8">
-            <div className="flex justify-between items-center mb-4">
-              <h4 className="font-bold text-2xl text-blue-700">Recent Donation</h4>
-              <button
-                onClick={() => navigate("/donation_history", { state: { myUser } })}
-                className=" px-4 py-2 rounded-lg border border-blue-600 text-blue-600 font-semibold hover:bg-blue-500 hover:text-white transitiontext-sm"
-              >
-                View Full History
-              </button>
-            </div>
-
-            {/* Recent donation line */}
-            <div className="text-gray-700 text-sm pl-5">
-              {txnLoading ? (
-                "Loading recent donation..."
-              ) : lastDonation ? (
-                <p className="text-gray-700 text-lg pl-5">
-                  Last donation: 
-                  <span className="font-bold text-[#3f4cc6ff] ml-1">
-                    {lastDonation.Donation_kwh} kWh
-                  </span>
-                  <span className="mx-2 text-gray-400">•</span>
-                  <span className="text-gray-600">
-                    {new Date(lastDonation.Date_Time.replace(" ", "T")).toLocaleDateString("en-MY")}
-                  </span>
-                </p>
-              ) : (
-                "You haven't made any donations yet."
-              )}
-            </div>
+        {/* --- Separate Recent Donation / History Box --- */}
+        <div className="bg-[#3f4cc6ff]/20 shadow-md rounded-xl p-6 w-full mt-8">
+          <div className="flex justify-between items-center mb-4">
+            <h4 className="font-bold text-2xl text-blue-700">Recent Donation</h4>
+            <button
+              onClick={() => navigate("/donation_history", { state: { myUser } })}
+              className=" px-4 py-2 rounded-lg border border-blue-600 text-blue-600 font-semibold hover:bg-blue-500 hover:text-white transitiontext-sm"
+            >
+              View Full History
+            </button>
           </div>
+
+          {/* Recent donation line */}
+          <div className="text-gray-700 text-sm pl-5">
+            {txnLoading ? (
+              "Loading recent donation..."
+            ) : lastDonation ? (
+              <p className="text-gray-700 text-lg pl-5">
+                Last donation:
+                <span className="font-bold text-[#3f4cc6ff] ml-1">
+                  {lastDonation.Donation_kwh} kWh
+                </span>
+                <span className="mx-2 text-gray-400">•</span>
+                <span className="text-gray-600">
+                  {new Date(lastDonation.Date_Time.replace(" ", "T")).toLocaleDateString("en-MY")}
+                </span>
+              </p>
+            ) : (
+              "You haven't made any donations yet."
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
