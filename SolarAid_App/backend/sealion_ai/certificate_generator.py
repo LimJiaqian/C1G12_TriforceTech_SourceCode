@@ -33,21 +33,23 @@ def generate_certificate_caption(kwh, impact_metric, context, co2_kg):
         return "Your gift of light brings hope and power to those who need it most."
     
     system_prompt = """You are a warm, humble Malaysian volunteer. 
-Write a 1-sentence poetic caption for a 'Sadaqah Jariah' certificate. 
-Tone: Syukur (Grateful), Humble, Hopeful.
-Use Manglish or Standard English with Malaysian warmth.
-Do NOT mention money. Do NOT mention Zakat. 
-Focus on the 'Cahaya' (Light) and 'Bantuan' (Help) given.
+        Write a 1-sentence poetic caption for a 'Sadaqah Jariah' certificate. 
+        Tone: Syukur (Grateful), Humble, Hopeful.
+        Use Manglish or Standard English with Malaysian warmth.
+        Do NOT mention money. Do NOT mention Zakat. 
+        Focus on the 'Cahaya' (Light) and 'Bantuan' (Help) given.
 
-CRITICAL: Do NOT provide a list. Do NOT say 'Here is an option' or 'Here are a few options'. 
-Output ONLY the single caption text itself, nothing else. Just one beautiful sentence."""
+        CRITICAL: Do NOT provide a list. Do NOT say 'Here is an option' or 'Here are a few options'. 
+        Output ONLY the single caption text itself, nothing else. Just one beautiful sentence.
+    """
     
     user_prompt = f"""
-Donation Impact: {kwh} kWh.
-Result: {impact_metric} at {context}.
-CO2 Saved: {co2_kg} kg.
+        Donation Impact: {kwh} kWh.
+        Result: {impact_metric} at {context}.
+        CO2 Saved: {co2_kg} kg.
 
-Write a caption celebrating this contribution to the community."""
+        Write a caption celebrating this contribution to the community.
+    """
     
     payload = {
         "model": "aisingapore/Gemma-SEA-LION-v4-27B-IT",

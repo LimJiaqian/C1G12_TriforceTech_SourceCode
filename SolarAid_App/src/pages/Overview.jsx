@@ -5,6 +5,56 @@ import { useNavigate } from "react-router-dom";
 export default function Overview({ myUser, analysis, capacity, monthlyDonation, remaining, loading }) {
   const navigate = useNavigate();
 
+  const [capacity, setCapacity] = useState(null);
+  const [monthlyDonation, setMonthlyDonation] = useState(null);
+  const [remaining, setRemaining] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [lastDonation, setLastDonation] = useState(null);
+  const [txnLoading, setTxnLoading] = useState(true);
+
+
+  // Load electricity data from backend API
+  useEffect(() => {
+    if (!myUser) return;
+
+    async function loadAll() {
+      try {
+        // --- Load electricity summary ---
+        const elecRes = await fetch(
+          `http://127.0.0.1:5000/api/user-electricity/${myUser.User_ID}`
+        );
+        const elecData = await elecRes.json();
+
+        if (elecRes.ok) {
+          setCapacity(elecData.capacity);
+          setMonthlyDonation(elecData.donated);
+          setRemaining(elecData.remaining);
+        } else {
+          console.error("Electricity API error:", elecData);
+        }
+
+        // --- Load last donation ---
+        const txnRes = await fetch(
+          `http://127.0.0.1:5000/api/transactions/${myUser.User_ID}`
+        );
+        const txnData = await txnRes.json();
+
+        if (Array.isArray(txnData) && txnData.length > 0) {
+          setLastDonation(txnData[0]);   // newest transaction
+        }
+
+      } catch (err) {
+        console.error("Overview API error:", err);
+      } finally {
+        setLoading(false);
+        setTxnLoading(false);
+      }
+    }
+
+    loadAll();
+  }, [myUser]);
+
+
   // Impact calculator
   const calcImpact = (kwh) => {
     if (!capacity) return { hours: 0, co2: 0, trees: 0 };
@@ -44,7 +94,7 @@ export default function Overview({ myUser, analysis, capacity, monthlyDonation, 
         {/* Title */}
         <div className="flex items-center gap-2 mb-4">
           <Zap className="text-yellow-400" />
-          <h3 className="font-bold text-lg">Your Energy Overview</h3>
+          <h3 className="font-bold text-3xl">Your Energy Overview</h3>
         </div>
 
         {/* Electricity Capacity */}
@@ -196,24 +246,35 @@ export default function Overview({ myUser, analysis, capacity, monthlyDonation, 
         </button>
 
       {/* --- Separate Recent Donation / History Box --- */}
-          <div className="bg-white shadow-md rounded-xl p-6 w-full mt-8">
+          <div className="bg-[#3f4cc6ff]/20 shadow-md rounded-xl p-6 w-full mt-8">
             <div className="flex justify-between items-center mb-4">
-              <h4 className="font-bold text-lg text-gray-800">Recent Donation</h4>
+              <h4 className="font-bold text-2xl text-blue-700">Recent Donation</h4>
               <button
                 onClick={() => navigate("/donation_history", { state: { myUser } })}
-                className="text-blue-600 font-semibold hover:underline text-sm"
+                className=" px-4 py-2 rounded-lg border border-blue-600 text-blue-600 font-semibold hover:bg-blue-500 hover:text-white transitiontext-sm"
               >
                 View Full History
               </button>
             </div>
 
             {/* Recent donation line */}
-            <p className="text-gray-700 text-sm">
-              {myUser.recentDonation
-                ? `Your last donation: ${myUser.recentDonation.amount} kWh on ${new Date(
-                    myUser.recentDonation.date
-                  ).toLocaleDateString()}`
-                : "You haven't made any donations yet."}
+            <p className="text-gray-700 text-sm pl-5">
+              {txnLoading ? (
+                "Loading recent donation..."
+              ) : lastDonation ? (
+                <p className="text-gray-700 text-lg pl-5">
+                  Last donation: 
+                  <span className="font-bold text-[#3f4cc6ff] ml-1">
+                    {lastDonation.Donation_kwh} kWh
+                  </span>
+                  <span className="mx-2 text-gray-400">•</span>
+                  <span className="text-gray-600">
+                    {new Date(lastDonation.Date_Time.replace(" ", "T")).toLocaleDateString("en-MY")}
+                  </span>
+                </p>
+              ) : (
+                "You haven't made any donations yet."
+              )}
             </p>
           </div>
       </div>

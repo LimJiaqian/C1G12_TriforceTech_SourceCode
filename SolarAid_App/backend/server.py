@@ -283,6 +283,113 @@ def get_prediction(user_id):
             ),
             500,
         )
+    
+@app.post("/api/donate")
+def donate_energy():
+    try:
+        data = request.json
+        user_id = int(data.get("user_id"))
+        kwh = int(float(data.get("kwh", 0)))     
+
+        if not user_id or kwh <= 0:
+            return jsonify({"error": "Invalid user_id or donation amount"}), 400
+
+        # 1. Read user_electricity
+        result = (
+            supabase.table("user_electricity")
+            .select("*")
+            .eq("User_ID", user_id)
+            .execute()
+        )
+
+        if not result.data:
+            return jsonify({"error": "Electricity record not found"}), 404
+
+        row = result.data[0]
+        current_monthly = int(row["Monthly_Donation"])   # ensure int
+        capacity = int(row["Electricity_Capacity"])
+
+        new_monthly = current_monthly + kwh
+        if new_monthly > capacity:
+            new_monthly = capacity
+
+        # 2. UPDATE user_electricity
+        supabase.table("user_electricity").update({
+            "Monthly_Donation": int(new_monthly)
+        }).eq("User_ID", user_id).execute()
+
+        # 3. UPDATE user total donation
+        result_user = (
+            supabase.table("user")
+            .select("Donate_Amount")
+            .eq("User_ID", user_id)
+            .single()
+            .execute()
+        )
+
+        total_prev = int(result_user.data["Donate_Amount"])
+        new_total = total_prev + kwh
+
+        supabase.table("user").update({
+            "Donate_Amount": int(new_total)
+        }).eq("User_ID", user_id).execute()
+
+        return jsonify({
+            "message": "Donation updated successfully",
+            "updated_monthly": new_monthly,
+            "updated_total": new_total
+        })
+
+    except Exception as e:
+        print("Donate API error:", e)
+        return jsonify({"error": str(e)}), 500
+    
+@app.post("/api/save-transaction")
+def save_transaction():
+    try:
+        data = request.json
+
+        print("DATA RECEIVED:", data)
+
+        certificate_id = data.get("certificate_id")
+        user_id = int(data.get("user_id"))
+        donation_kwh = int(data.get("donation_kwh"))
+        impact_metric = data.get("impact_metric")
+        context = data.get("context")
+        co2 = float(data.get("co2"))
+
+        # Save into Supabase
+        result = supabase.table("transaction").insert({
+            "Certificate_ID": certificate_id,
+            "User_ID": user_id,
+            "Donation_kwh": donation_kwh,
+            "Impact_Metric": impact_metric,
+            "Context": context,
+            "Co2": co2
+        }).execute()
+
+        return jsonify({"message": "Transaction stored successfully!"})
+
+    except Exception as e:
+        print("Save transaction error:", e)
+        return jsonify({"error": str(e)}), 500
+    
+@app.get("/api/transactions/<int:user_id>")
+def get_transactions(user_id):
+    try:
+        result = (
+            supabase.table("transaction")
+            .select("Certificate_ID, User_ID, Date_Time, Donation_kwh, Impact_Metric, Context, Co2")
+            .eq("User_ID", user_id)
+            .order("Date_Time", desc=True)   # sort by timestamp
+            .execute()
+        )
+
+        return jsonify(result.data), 200
+
+    except Exception as e:
+        print("GET TRANSACTIONS ERROR:", e)
+        return jsonify({"error": str(e)}), 500
 
 
 if __name__ == "__main__":

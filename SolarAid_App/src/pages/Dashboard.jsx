@@ -155,7 +155,7 @@ export default function Dashboard() {
       </div>
 
       <div className="max-w-7xl mx-auto pt-24 px-6">
-        <h2 className="text-3xl font-bold">Your Impact Dashboard</h2>
+        <h2 className="text-4xl font-bold">Your Impact Dashboard</h2>
         <p className="text-gray-600">Track your contributions and see your impact grow</p>
 
         <div className="flex gap-8 mt-6 items-start flex-col lg:flex-row">
