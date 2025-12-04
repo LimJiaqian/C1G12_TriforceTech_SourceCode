@@ -118,7 +118,7 @@ export default function ChatPanel({ onClose }) {
           ...prev,
           { 
             sender: "ai", 
-            text: "Sorry, I couldn't access your microphone. Please check your browser permissions and try again." 
+            text: "Sorry, I couldn't access your microphone. Please check your browser permissions and try again. 🎤" 
           }
         ]);
       }
@@ -141,30 +141,17 @@ export default function ChatPanel({ onClose }) {
       const formData = new FormData();
       formData.append("audio", audioBlob, "recording.webm");
 
-      // Debug: Log FormData contents
-      console.log("📤 Sending audio to backend:");
-      console.log("- Blob size:", audioBlob.size, "bytes");
-      console.log("- Blob type:", audioBlob.type);
-      console.log("- Filename: recording.webm");
-
       // Send to backend
       const response = await fetch("http://127.0.0.1:5000/api/chat-enquiry", {
         method: "POST",
         body: formData,
       });
 
-      // Debug: Log response status
-      console.log("📥 Backend response status:", response.status);
-
       if (!response.ok) {
-        // Try to get error details from response
-        const errorText = await response.text();
-        console.error("❌ Backend error response:", errorText);
-        throw new Error(`Server error: ${response.status} - ${errorText}`);
+        throw new Error(`Server error: ${response.status}`);
       }
 
       const data = await response.json();
-      console.log("✅ Backend response data:", data);
 
       // Add AI response to chat
       setMessages((prev) => [
@@ -175,23 +162,12 @@ export default function ChatPanel({ onClose }) {
         }
       ]);
     } catch (error) {
-      console.error("❌ Audio message error:", error);
-      
-      // More detailed error message
-      let errorMsg = "Sorry, I couldn't process your voice message. ";
-      if (error.message.includes("500")) {
-        errorMsg += "The server encountered an internal error. Please check the Flask terminal for details.";
-      } else if (error.message.includes("Failed to fetch")) {
-        errorMsg += "Cannot connect to the backend server. Is it running on port 5000?";
-      } else {
-        errorMsg += "Please try typing your question instead. 🙏";
-      }
-      
+      console.error("Audio message error:", error);
       setMessages((prev) => [
         ...prev,
         { 
           sender: "ai", 
-          text: errorMsg
+          text: "Sorry, I couldn't process your voice message. Please try typing your question instead. 🙏" 
         }
       ]);
     } finally {
@@ -225,7 +201,7 @@ export default function ChatPanel({ onClose }) {
             
             {/* AI Message */}
             {msg.sender === "ai" ? (
-              <div className="max-w-[75%] bg-gray-100 text-black px-4 py-3 rounded-xl rounded-tl-sm shadow-sm whitespace-pre-wrap">
+              <div className="max-w-[75%] bg-gray-100 text-black px-4 py-3 rounded-xl rounded-tl-sm shadow-sm">
                 {msg.text}
               </div>
             ) : (
@@ -233,7 +209,6 @@ export default function ChatPanel({ onClose }) {
               <div className="
                 max-w-[75%] text-white px-4 py-3 rounded-xl rounded-tr-sm shadow-md
                 bg-gradient-to-r from-[#3BA0FF] via-[#5A32FF] to-[#6C00FF]
-                whitespace-pre-wrap
               ">
                 {msg.text}
               </div>
@@ -267,23 +242,19 @@ export default function ChatPanel({ onClose }) {
         <div className="flex-1 bg-gray-100 rounded-full px-5 py-2 flex items-center">
           <input
             className="flex-1 bg-transparent outline-none text-gray-800 placeholder-gray-500 disabled:cursor-not-allowed"
-            placeholder={isRecording ? "Recording..." : isLoading ? "Processing..." : "Type a message..."}
+            placeholder={isLoading ? "Processing..." : "Type a message..."}
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && !isLoading && !isRecording && input.trim() && sendMessage()}
-            disabled={isLoading || isRecording}
+            onKeyDown={(e) => e.key === "Enter" && !isLoading && input.trim() && sendMessage()}
+            disabled={isLoading}
           />
         </div>
 
         {/* Circular button - Mic or Send based on input */}
         <button
-          onClick={input.trim() ? sendMessage : toggleRecording}
+          onClick={input.trim() ? sendMessage : null}
           disabled={isLoading}
-          className={`w-12 h-12 rounded-full text-white flex items-center justify-center transition shadow-md ${
-            isRecording 
-              ? "bg-red-500 hover:bg-red-600 animate-pulse" 
-              : "bg-[#6C00FF] hover:bg-[#5A32FF]"
-          } disabled:bg-gray-300 disabled:cursor-not-allowed`}
+          className="w-12 h-12 rounded-full bg-[#6C00FF] text-white flex items-center justify-center hover:bg-[#5A32FF] transition disabled:bg-gray-300 disabled:cursor-not-allowed shadow-md"
         >
           {isLoading ? (
             <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>

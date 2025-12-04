@@ -151,7 +151,7 @@ function extractFinalResponse(data) {
     return botText;
     
   } catch (error) {
-    console.error("Error extracting response:", error);
+    console.error("❌ Error extracting response:", error);
     return "Error parsing the AI response.";
   }
 }
@@ -179,12 +179,12 @@ export async function testJamAIConnection() {
     
     const response = await sendMessageToJamAI("Hello, this is a test message.");
     
-    console.log("Connection successful!");
+    console.log("✅ Connection successful!");
     console.log("Response:", response);
     
     return { success: true, response };
   } catch (error) {
-    console.error("Connection failed:", error.message);
+    console.error("❌ Connection failed:", error.message);
     return { success: false, error: error.message };
   }
 }

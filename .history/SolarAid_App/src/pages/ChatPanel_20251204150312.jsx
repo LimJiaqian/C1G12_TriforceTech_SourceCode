@@ -225,7 +225,7 @@ export default function ChatPanel({ onClose }) {
             
             {/* AI Message */}
             {msg.sender === "ai" ? (
-              <div className="max-w-[75%] bg-gray-100 text-black px-4 py-3 rounded-xl rounded-tl-sm shadow-sm whitespace-pre-wrap">
+              <div className="max-w-[75%] bg-gray-100 text-black px-4 py-3 rounded-xl rounded-tl-sm shadow-sm">
                 {msg.text}
               </div>
             ) : (
@@ -233,7 +233,6 @@ export default function ChatPanel({ onClose }) {
               <div className="
                 max-w-[75%] text-white px-4 py-3 rounded-xl rounded-tr-sm shadow-md
                 bg-gradient-to-r from-[#3BA0FF] via-[#5A32FF] to-[#6C00FF]
-                whitespace-pre-wrap
               ">
                 {msg.text}
               </div>

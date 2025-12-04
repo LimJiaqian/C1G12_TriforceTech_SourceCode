@@ -399,7 +399,7 @@ def chat_enquiry():
     """
     try:
         print("\n" + "="*60)
-        print("NEW CHAT ENQUIRY REQUEST")
+        print("🎤 NEW CHAT ENQUIRY REQUEST")
         print(f"Content-Type: {request.content_type}")
         print(f"Request files: {list(request.files.keys())}")
         print(f"Request form: {list(request.form.keys())}")
@@ -427,7 +427,7 @@ def chat_enquiry():
             unique_filename = f"{timestamp}_{filename}"
             audio_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
             
-            print(f"Saving audio file...")
+            print(f"💾 Saving audio file...")
             print(f"   - Original filename: {audio_file.filename}")
             print(f"   - Secure filename: {filename}")
             print(f"   - Unique filename: {unique_filename}")
@@ -435,18 +435,18 @@ def chat_enquiry():
             
             audio_file.save(audio_path)
             file_size = os.path.getsize(audio_path)
-            print(f"Audio file saved successfully!")
+            print(f"✅ Audio file saved successfully!")
             print(f"   - Size: {file_size} bytes ({file_size/1024:.2f} KB)")
             
             try:
                 # Process audio enquiry (transcribe + upload to knowledge base)
-                print(f"Starting audio processing (transcription + RAG)...")
+                print(f"🔄 Starting audio processing (transcription + RAG)...")
                 processing_result = process_enquiry(audio_path, input_type='audio_path')
-                print(f"Audio processing completed!")
+                print(f"✅ Audio processing completed!")
                 
                 if not processing_result.get("success"):
                     error_msg = processing_result.get("error", "Unknown error")
-                    print(f"Audio processing failed: {error_msg}")
+                    print(f"❌ Audio processing failed: {error_msg}")
                     return jsonify({
                         "error": "Audio processing failed",
                         "details": error_msg
@@ -454,16 +454,16 @@ def chat_enquiry():
                 
                 # Extract transcript for chat query
                 query_text = processing_result.get("transcript")
-                print(f"Transcript extracted: {query_text[:100]}..." if len(query_text) > 100 else f"📝 Transcript: {query_text}")
+                print(f"📝 Transcript extracted: {query_text[:100]}..." if len(query_text) > 100 else f"📝 Transcript: {query_text}")
                 
             finally:
                 # Clean up: delete temporary audio file
                 try:
                     if os.path.exists(audio_path):
                         os.remove(audio_path)
-                        print(f"Temporary file deleted: {audio_path}")
+                        print(f"🗑️ Temporary file deleted: {audio_path}")
                 except Exception as cleanup_error:
-                    print(f"Cleanup warning: {cleanup_error}")
+                    print(f"⚠️ Cleanup warning: {cleanup_error}")
         
         # Check if request contains text input
         elif request.is_json:
@@ -522,7 +522,7 @@ def chat_enquiry():
         return jsonify(response_data), 200
     
     except Exception as e:
-        print(f"Chat enquiry error: {e}")
+        print(f"❌ Chat enquiry error: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({

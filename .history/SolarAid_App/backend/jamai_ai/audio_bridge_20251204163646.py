@@ -5,18 +5,17 @@ Handles audio transcription via AssemblyAI and knowledge base updates via JamAI
 
 import os
 import assemblyai as aai
-from jamaibase import JamAI, protocol as p
+from jamaibase import JamAI
+from jamaibase import types as p
 from dotenv import load_dotenv
 from datetime import datetime
-
-from SolarAid_App.backend.jamai_ai.audio_bridge import VITE_JAM_API_KEY, VITE_JAM_PROJECT_ID
 
 load_dotenv()
 
 # Configuration
 ASSEMBLYAI_API_KEY = os.getenv("ASSEMBLYAI_API_KEY")
-JAMAI_API_KEY = os.getenv("VITE_JAM_API_KEY")  # Using VITE_JAM_API_KEY from .env
-JAMAI_PROJECT_ID = os.getenv("VITE_JAM_PROJECT_ID")  # Using VITE_JAM_PROJECT_ID from .env
+VITE_JAM_API_KEY = os.getenv("VITE_JAM_API_KEY")
+VITE_JAM_PROJECT_ID = os.getenv("VITE_JAM_PROJECT_ID")
 KNOWLEDGE_TABLE_ID = "meeting_transcripts"
 
 # Initialize clients
@@ -79,16 +78,16 @@ def upload_to_knowledge_base(transcript_text: str, metadata: dict = None) -> dic
     Raises:
         Exception: If upload fails
     """
-    if not JAMAI_API_KEY or not JAMAI_PROJECT_ID:
-        raise ValueError("JAMAI_API_KEY or JAMAI_PROJECT_ID not found in environment variables")
+    if not VITE_JAM_API_KEY or not VITE_JAM_PROJECT_ID:
+        raise ValueError("VITE_JAM_API_KEY or VITE_JAM_PROJECT_ID not found in environment variables")
     
     try:
         print(f"Uploading to JamAI Knowledge Base (Table: {KNOWLEDGE_TABLE_ID})")
         
         # Initialize JamAI client
         jamai = JamAI(
-            api_key=JAMAI_API_KEY,
-            project_id=JAMAI_PROJECT_ID
+            token=VITE_JAM_API_KEY,
+            project_id=VITE_JAM_PROJECT_ID
         )
         
         # Prepare row data
@@ -119,7 +118,7 @@ def upload_to_knowledge_base(transcript_text: str, metadata: dict = None) -> dic
             request=add_request
         )
         
-        print(f"✅ Successfully uploaded to knowledge base")
+        print(f"Successfully uploaded to knowledge base")
         
         return {
             "success": True,
@@ -155,14 +154,20 @@ def process_enquiry(input_data: str, input_type: str = 'text') -> dict:
             transcription_result = transcribe_audio(input_data)
             transcript_text = transcription_result["text"]
             
-            # Step 2: Upload to knowledge base
-            upload_result = upload_to_knowledge_base(
-                transcript_text=transcript_text,
-                metadata={
-                    "audio_id": transcription_result.get("id"),
-                    "audio_duration": transcription_result.get("audio_duration")
-                }
-            )
+            # Step 2: Upload to knowledge base (optional - skip if table doesn't exist)
+            upload_result = {"success": False, "skipped": True}
+            try:
+                upload_result = upload_to_knowledge_base(
+                    transcript_text=transcript_text,
+                    metadata={
+                        "audio_id": transcription_result.get("id"),
+                        "audio_duration": transcription_result.get("audio_duration")
+                    }
+                )
+                print("✅ Knowledge base upload successful")
+            except Exception as upload_error:
+                print(f"⚠️ Knowledge base upload skipped: {upload_error}")
+                print("   (Continuing with transcription only)")
             
             return {
                 "success": True,
@@ -216,7 +221,7 @@ def query_jamai_chat(query_text: str, table_id: str = "Chatbox") -> dict:
         
         # Initialize JamAI client
         jamai = JamAI(
-            api_key=VITE_JAM_API_KEY,
+            token=VITE_JAM_API_KEY,
             project_id=VITE_JAM_PROJECT_ID
         )
         
@@ -233,14 +238,25 @@ def query_jamai_chat(query_text: str, table_id: str = "Chatbox") -> dict:
             request=add_request
         )
         
-        # Extract response
+        # Extract response using dot notation (as per JamAI API contract)
         if hasattr(response, 'rows') and len(response.rows) > 0:
-            final_response = response.rows[0].columns.get("Final_response", {})
-            response_text = final_response.get("value", "No response generated")
+            row = response.rows[0]
+            # Use dot notation to access columns
+            if hasattr(row, 'columns'):
+                columns = row.columns
+                # Access Final_response column
+                if 'Final_response' in columns:
+                    final_response_col = columns['Final_response']
+                    # Extract value from column
+                    response_text = final_response_col.get('value') if isinstance(final_response_col, dict) else str(final_response_col)
+                else:
+                    response_text = "No Final_response column found in table"
+            else:
+                response_text = "No columns found in response"
         else:
-            response_text = "No response generated"
+            response_text = "No rows returned from Action Table"
         
-        print(f"Received response from Action Table")
+        print(f"✅ Received response from Action Table: {response_text[:100]}...")
         
         return {
             "success": True,
@@ -249,5 +265,5 @@ def query_jamai_chat(query_text: str, table_id: str = "Chatbox") -> dict:
         }
         
     except Exception as e:
-        print(f"JamAI query error: {e}")
+        print(f"❌ JamAI query error: {e}")
         raise Exception(f"Failed to query JamAI Action Table: {str(e)}")

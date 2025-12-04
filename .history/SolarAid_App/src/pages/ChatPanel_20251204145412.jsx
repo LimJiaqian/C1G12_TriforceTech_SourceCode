@@ -135,17 +135,11 @@ export default function ChatPanel({ onClose }) {
 
     try {
       // Add user message indicator
-      setMessages((prev) => [...prev, { sender: "user", text: "🎤 Voice message" }]);
+      setMessages((prev) => [...prev, { sender: "user", text: "Voice message" }]);
 
       // Prepare FormData with audio file
       const formData = new FormData();
       formData.append("audio", audioBlob, "recording.webm");
-
-      // Debug: Log FormData contents
-      console.log("📤 Sending audio to backend:");
-      console.log("- Blob size:", audioBlob.size, "bytes");
-      console.log("- Blob type:", audioBlob.type);
-      console.log("- Filename: recording.webm");
 
       // Send to backend
       const response = await fetch("http://127.0.0.1:5000/api/chat-enquiry", {
@@ -153,45 +147,27 @@ export default function ChatPanel({ onClose }) {
         body: formData,
       });
 
-      // Debug: Log response status
-      console.log("📥 Backend response status:", response.status);
-
       if (!response.ok) {
-        // Try to get error details from response
-        const errorText = await response.text();
-        console.error("❌ Backend error response:", errorText);
-        throw new Error(`Server error: ${response.status} - ${errorText}`);
+        throw new Error(`Server error: ${response.status}`);
       }
 
       const data = await response.json();
-      console.log("✅ Backend response data:", data);
 
       // Add AI response to chat
       setMessages((prev) => [
         ...prev,
         { 
           sender: "ai", 
-          text: data.response || "I processed your voice message successfully! 🎉" 
+          text: data.response || "I processed your voice message successfully!" 
         }
       ]);
     } catch (error) {
-      console.error("❌ Audio message error:", error);
-      
-      // More detailed error message
-      let errorMsg = "Sorry, I couldn't process your voice message. ";
-      if (error.message.includes("500")) {
-        errorMsg += "The server encountered an internal error. Please check the Flask terminal for details.";
-      } else if (error.message.includes("Failed to fetch")) {
-        errorMsg += "Cannot connect to the backend server. Is it running on port 5000?";
-      } else {
-        errorMsg += "Please try typing your question instead. 🙏";
-      }
-      
+      console.error("Audio message error:", error);
       setMessages((prev) => [
         ...prev,
         { 
           sender: "ai", 
-          text: errorMsg
+          text: "Sorry, I couldn't process your voice message. Please try typing your question instead. 🙏" 
         }
       ]);
     } finally {
@@ -225,7 +201,7 @@ export default function ChatPanel({ onClose }) {
             
             {/* AI Message */}
             {msg.sender === "ai" ? (
-              <div className="max-w-[75%] bg-gray-100 text-black px-4 py-3 rounded-xl rounded-tl-sm shadow-sm whitespace-pre-wrap">
+              <div className="max-w-[75%] bg-gray-100 text-black px-4 py-3 rounded-xl rounded-tl-sm shadow-sm">
                 {msg.text}
               </div>
             ) : (
@@ -233,7 +209,6 @@ export default function ChatPanel({ onClose }) {
               <div className="
                 max-w-[75%] text-white px-4 py-3 rounded-xl rounded-tr-sm shadow-md
                 bg-gradient-to-r from-[#3BA0FF] via-[#5A32FF] to-[#6C00FF]
-                whitespace-pre-wrap
               ">
                 {msg.text}
               </div>
