@@ -19,28 +19,56 @@ export default function Dashboard() {
   const [monthlyDonation, setMonthlyDonation] = useState(null);
   const [remaining, setRemaining] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [predictionStatus, setPredictionStatus] = useState('');
+  const [predictionProgress, setPredictionProgress] = useState(0);
 
   useEffect(() => {
     if (leftRef.current) setLeftHeight(leftRef.current.offsetHeight);
   }, []);
 
   // Load smart prediction data from backend API
+  // Load smart prediction data from backend API
   useEffect(() => {
     async function fetchAIPrediction() {
       if (!myUser) return;
 
       try {
-        const res = await fetch(
+        const eventSource = new EventSource(
           `http://127.0.0.1:5000/api/predict/${myUser.User_ID}`
         );
 
-        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+        eventSource.onmessage = (event) => {
+          const data = JSON.parse(event.data);
 
-        const data = await res.json();
-        setAnalysis(data);
+          // Update status and progress
+          if (data.message) {
+            setPredictionStatus(data.message);
+            setPredictionProgress(data.progress || 0);
+          }
+
+          // Handle completion
+          if (data.complete) {
+            if (data.error) {
+              console.error('Prediction error:', data.error);
+              setPredictionStatus('Error loading prediction');
+            } else {
+              setAnalysis(data.result);
+              setPredictionStatus('Complete');
+              setPredictionProgress(100);
+            }
+            eventSource.close();
+          }
+        };
+
+        eventSource.onerror = (error) => {
+          console.error('SSE Error:', error);
+          setPredictionStatus('Connection error');
+          eventSource.close();
+        };
+
       } catch (err) {
-        console.error("Error fetching AI prediction data:", err);
-        setError(err.message);
+        console.error("Error setting up AI prediction stream:", err);
+        setPredictionStatus('Failed to start prediction');
       }
     }
 
@@ -175,10 +203,10 @@ export default function Dashboard() {
             leftHeight={leftHeight}
           />
         </div>
-        
+
         <div style={{ marginTop: "2rem" }}>
           <div className="mb-20">
-            <SmartPrediction myUser={myUser} analysis={analysis} remaining={remaining} />
+            <SmartPrediction myUser={myUser} analysis={analysis} remaining={remaining} predictionStatus={predictionStatus} predictionProgress={predictionProgress}/>
           </div>
         </div>
       </div>

@@ -45,13 +45,24 @@ export default function Overview({ myUser, analysis, capacity, monthlyDonation, 
     return { hours, co2, trees };
   };
 
+  const [aiSuggestion, setAISuggestion] = useState(
+    analysis?.catchUp?.minRequired ? Number(analysis.catchUp.minRequired) : 0
+  );
+
   const [donateAmount, setDonateAmount] = useState(
-    analysis?.minRequired ? Number(analysis.minRequired) : 0
+    analysis?.catchUp?.minRequired ? Number(analysis.catchUp.minRequired) : 0
   );
 
   useEffect(() => {
-    if (analysis?.minRequired) {
-      setDonateAmount(Number(analysis.minRequired));
+    if (analysis?.catchUp?.minRequired) {
+      if (analysis?.catchUp?.minRequired <= remaining) {
+        setDonateAmount(Number(analysis.catchUp.minRequired));
+        setAISuggestion(Number(analysis.catchUp.minRequired));
+      } else {
+        setDonateAmount(Number(analysis.catchUp.minRequired));
+        setAISuggestion(Number(analysis.catchUp.minRequired));
+      }
+
     }
   }, [analysis]);
 
@@ -172,8 +183,9 @@ export default function Overview({ myUser, analysis, capacity, monthlyDonation, 
               borderRadius: "50px"
             }}
           />
-
-          <span style={{ color: "gray", fontSize: "12px" }}>Our AI suggest you donate a minimum of {donateAmount} kWh</span>
+          {analysis && (
+            <span style={{ color: "gray", fontSize: "12px" }}>Our AI suggest you donate a minimum of {aiSuggestion} kWh</span>
+          )}
           <style>{`
             input[type="range"]::-webkit-slider-thumb {
               -webkit-appearance: none;

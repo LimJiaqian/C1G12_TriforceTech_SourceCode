@@ -11,24 +11,17 @@ const SECTION_BG = "bg-indigo-50";
 const DonutChart = ({ percentage, color, textColor, label, insight }) => {
   const radius = 50;
   const circumference = 2 * Math.PI * radius;
-
+  const validPercentage = Math.min(100, Math.max(0, percentage));
   const strokeDashoffset =
-    percentage !== 0
-      ? circumference - (percentage / 100) * circumference
+    validPercentage !== 0
+      ? circumference - (validPercentage / 100) * circumference
       : circumference;
 
   return (
     <div className="flex flex-col items-center p-2">
       <div className="relative w-24 h-24">
         <svg className="w-full h-full transform -rotate-90" viewBox="0 0 120 120">
-          <circle
-            cx="60"
-            cy="60"
-            r={radius}
-            fill="none"
-            stroke="#e0e7ff"
-            strokeWidth="15"
-          />
+          <circle cx="60" cy="60" r={radius} fill="none" stroke="#e0e7ff" strokeWidth="15" />
           <circle
             cx="60"
             cy="60"
@@ -42,15 +35,12 @@ const DonutChart = ({ percentage, color, textColor, label, insight }) => {
             style={{ strokeLinecap: "round" }}
           />
         </svg>
-
         <div className="absolute inset-0 flex items-center justify-center">
           <p className={`text-2xl font-bold`} style={{ color: textColor }}>
-            {percentage}
-            <span className="text-lg">%</span>
+            {validPercentage}<span className="text-lg">%</span>
           </p>
         </div>
       </div>
-
       <p className="text-sm font-medium text-gray-700 mt-2">{label}</p>
       <p className="text-xs text-gray-500 text-center mt-1">{insight}</p>
     </div>
@@ -62,84 +52,95 @@ const DonutChart = ({ percentage, color, textColor, label, insight }) => {
 ---------------------------------------------------- */
 const TrendIndicator = ({ trend }) => {
   let text, color, arrow, barClass, insight;
-
-  if (trend > 0) {
+  if (trend > 0.1) {
     text = "Rising";
     color = "text-green-600";
     arrow = "↑";
     barClass = "bg-green-400 w-full";
-    insight = "Great progress! Keep this upward momentum to secure your rank.";
-  } else if (trend < 0) {
+    insight = "Great progress! Keep this upward momentum.";
+  } else if (trend < -0.1) {
     text = "Declining";
     color = "text-red-600";
     arrow = "↓";
     barClass = "bg-red-400 w-1/3";
-    insight =
-      "Your trend dipped slightly. Focus on one 'Tip' below to get back on track.";
+    insight = "Your trend dipped slightly. Focus on the tips below.";
   } else {
-    text = "Neutral";
+    text = "Stable";
     color = "text-gray-500";
     arrow = "→";
     barClass = "bg-gray-400 w-2/3";
-    insight =
-      "You're maintaining a steady level. A small push is needed to climb the ranks.";
+    insight = "You're maintaining a steady level.";
   }
 
   return (
     <div className="p-1">
       <p className="text-gray-700 text-sm font-medium">Your Donation Momentum</p>
-
       <div className={`text-2xl font-bold mt-1 flex items-center ${color}`}>
-        {text}
-        <span className="text-5xl ml-2">{arrow}</span>
+        {text}<span className="text-5xl ml-2">{arrow}</span>
       </div>
-
       <div className="w-full bg-gray-200 rounded-full h-2 mt-2 overflow-hidden">
         <div className={`h-2 rounded-full transition-all duration-700 ${barClass}`} />
       </div>
-
       <p className="text-sm text-gray-600 mt-2">{insight}</p>
     </div>
   );
 };
 
 /* ----------------------------------------------------
-   Goal Comparison Card (Fixed Broken JSX)
+   Goal Comparison Card
 ---------------------------------------------------- */
-const GoalComparisonCard = ({ savedKwh, minRequired, maxNeeded, rank, remaining }) => {
-  const isBehind = remaining < minRequired;
+const GoalComparisonCard = ({ minRequired, maxNeeded, currentGap, mode, rank, summary }) => {
+  const isAttack = mode === 'attack';
+  const isSafe = !isAttack ? (currentGap > 10) : (currentGap <= 0);
+  const safeGap = Math.abs(currentGap).toFixed(2);
+  const overtakeAmount = (Math.abs(currentGap) + 1).toFixed(2);
 
   return (
     <div
-      className={`mt-6 p-5 rounded-xl border-2 shadow-lg bg-white ${isBehind ? "border-[#6C00FF]" : "border-green-300"
-        }`}
+      className={`mt-6 p-5 rounded-xl border-2 shadow-lg bg-white ${!isSafe ? "border-[#6C00FF]" : "border-green-300"}`}
     >
-      <p className="text-lg font-bold">
-        {isBehind ? (
+      <p className="text-sm font-bold">
+        <span className="text-lg">{summary}</span> <br />
+
+        {isAttack ? (
           <>
-            You need to save about{" "}
-            <span className="text-3xl font-extrabold text-[#6C00FF] m-2">
-              {(maxNeeded + minRequired) / 2} kWh
-            </span>{" "}
-            to surpass Rank #{rank} next month
+            <br />
+            Save <span className="text-2xl font-extrabold text-[#6C00FF] m-2">{minRequired} kWh</span> more.
           </>
         ) : (
-          <>You're ahead of the minimum goal for Rank #{rank}!</>
+          <>
+            Maintain a buffer of <span className="text-2xl font-extrabold text-green-600 m-2">{minRequired} kWh</span>
+            to stay ahead of the chaser.
+          </>
         )}
       </p>
 
-      <p className="text-sm mt-2 text-gray-600">
-        Minimum Required: <strong>{minRequired} kWh</strong>
+      <p className="text-sm mt-2 text-gray-600 leading-relaxed">
         <br />
-        <span style={{ fontSize: "10px" }}>This is the minimum threshold to secure the next rank.</span>
-        <br /><br />
-        Current Balance: <strong>{remaining} kWh</strong>
-        <br /><br />
-
-        Maximum Target (Safe Zone): <strong>{maxNeeded} kWh</strong>
+        Current {isAttack ? "Gap" : "Lead"}: <strong>{safeGap} kWh</strong>
         <br />
-        <span style={{ fontSize: "10px" }}>This is the ideal range. Reaching this ensures you have a buffer and remain safe even if trends fluctuate.</span>
-        <br /><br />
+        <span className="text-[10px] text-gray-500 block mt-1">
+          {isAttack
+            ? `Donate ${overtakeAmount} kWh now to achieve the target!`
+            : `You are ahead by ${safeGap} kWh. Maintain your lead!`}
+        </span>
+        <br />
+        Minimum Target: <strong>{minRequired} kWh</strong>
+        <br />
+        <span className="text-[10px] text-gray-500 block mt-1">
+          {isAttack
+            ? "This is the minimum energy needed to close the gap."
+            : "This is the minimum buffer to avoid being overtaken."}
+        </span>
+        <br />
+        Maximum Target: <strong>{maxNeeded} kWh</strong>
+        <br />
+        <span className="text-[10px] text-gray-500 block mt-1">
+          {isAttack
+            ? "Reaching this safely secures the higher rank."
+            : "Reaching this completely blocks the chaser from catching up."}
+        </span>
+        <br />
       </p>
     </div>
   );
@@ -155,40 +156,155 @@ const DataBox = ({ children }) => (
 );
 
 /* ----------------------------------------------------
-   Splash Screen
+   Splash Screen (Refined with Visuals)
 ---------------------------------------------------- */
-const SplashScreen = () => (
-  <div className="w-full h-80 flex flex-col items-center justify-center bg-white rounded-xl shadow-2xl animate-pulse">
-    <div className={`text-4xl font-extrabold ${ACCENT_COLOR}`}>Smart Prediction</div>
-    <div className="text-lg text-gray-500 mt-3">Analyzing your ranking data...</div>
+const AIProcessingVisual = ({ progress }) => {
+  // Determine visual stage
+  const isAnalyzing = progress > 30 && progress < 100;
+  const isFinalizing = progress == 80;
+
+  return (
+    <div className="relative w-32 h-32 mb-6">
+      {/* Outer Pulse Rings */}
+      <div className="absolute inset-0 border-4 border-indigo-100 rounded-full animate-[ping_3s_linear_infinite]"></div>
+      <div className="absolute inset-0 border-4 border-indigo-50 rounded-full animate-[ping_3s_linear_infinite_1.5s]"></div>
+
+      {/* Central Hub */}
+      <div className="absolute inset-0 flex items-center justify-center bg-white rounded-full shadow-lg border-2 border-indigo-100 z-10">
+        {/* Dynamic Icon based on stage */}
+        {!isFinalizing ? (
+          // Neural Network Icon
+          <svg className={`w-16 h-16 text-indigo-600 ${isAnalyzing ? 'animate-pulse' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+            {/* Central Node */}
+            <circle cx="12" cy="12" r="3" fill="#e0e7ff" />
+
+            {/* Satellite Nodes */}
+            <circle cx="6" cy="6" r="2" />
+            <circle cx="18" cy="6" r="2" />
+            <circle cx="6" cy="18" r="2" />
+            <circle cx="18" cy="18" r="2" />
+
+            {/* Connections */}
+            <path d="M10 10L7.5 7.5M14 10L16.5 7.5M10 14L7.5 16.5M14 14L16.5 16.5" strokeLinecap="round" />
+          </svg>
+        ) : (
+          <svg className="w-14 h-14 text-green-500 animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            {/* Check/Success Icon */}
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        )}
+      </div>
+
+      {/* REMOVED: Orbiting particles (Three dots on circle) */}
+    </div>
+  );
+};
+
+const SplashScreen = ({ predictionStatus, localProgress = 0 }) => (
+  <div className="w-full h-96 flex flex-col items-center justify-center bg-white rounded-xl shadow-2xl overflow-hidden relative">
+    {/* Background Grid Pattern */}
+    <div className="absolute inset-0 opacity-5"
+      style={{ backgroundImage: 'radial-gradient(#4f46e5 1px, transparent 1px)', backgroundSize: '20px 20px' }}>
+    </div>
+
+    <div className="z-10 flex flex-col items-center">
+      <h2 className={`text-3xl font-extrabold ${ACCENT_COLOR} mb-1 tracking-tight`}>Smart Prediction</h2>
+      <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-8">Powered by Cloudflare Workers AI</p>
+
+      {/* Visual Animation */}
+      <AIProcessingVisual progress={localProgress} />
+
+      {/* Status Text */}
+      <div className="h-6 mb-3">
+        <span className="text-sm font-medium text-gray-600 animate-pulse">
+          {predictionStatus || "Initializing Neural Network..."}
+        </span>
+      </div>
+
+      {/* Enhanced Progress Bar */}
+      <div className="w-72 relative">
+        <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden shadow-inner border border-gray-200">
+          <div
+            className="h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500 rounded-full transition-all duration-500 ease-out relative"
+            style={{ width: `${localProgress}%`, backgroundSize: '200% 100%' }}
+          >
+            {/* Shimmer Effect */}
+            <div className="absolute inset-0 w-full h-full bg-white opacity-20 animate-[shimmer_2s_infinite]"
+              style={{ backgroundImage: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent)' }}>
+            </div>
+          </div>
+        </div>
+        <div className="flex justify-between mt-2 px-1">
+          <span className="text-[10px] text-gray-400">Data</span>
+          <span className="text-[10px] text-gray-400 font-bold">{localProgress}%</span>
+          <span className="text-[10px] text-gray-400">Analysis</span>
+        </div>
+      </div>
+    </div>
   </div>
 );
 
 /* ----------------------------------------------------
    Main Component
 ---------------------------------------------------- */
-export default function SmartPrediction({ myUser, analysis, remaining }) {
-  const [error, setError] = useState(null);
-  const [showSplash, setShowSplash] = useState(true);
+export default function SmartPrediction({ myUser, analysis: propAnalysis, predictionStatus, predictionProgress }) {
+  const [analysis, setAnalysis] = useState(propAnalysis || null);
   const [isMounted, setIsMounted] = useState(false);
+  const [activeTab, setActiveTab] = useState("attack");
+  const [localProgress, setLocalProgress] = useState(0);
 
+  // Keep local progress synced, but never let it decrease
   useEffect(() => {
-    const timer = setTimeout(() => setShowSplash(false), 1500);
-    return () => clearTimeout(timer);
-  }, []);
+    if (predictionProgress > localProgress) {
+      setLocalProgress(predictionProgress);
+    }
+  }, [predictionProgress, localProgress]);
 
+  // Update analysis when prop changes and trigger fade-in
   useEffect(() => {
-    if (!showSplash && analysis) setIsMounted(true);
-  }, [showSplash, analysis]);
+    if (propAnalysis && predictionProgress == 100) {
+      setAnalysis(propAnalysis);
+      // Keep progress at 100% during transition
+      setLocalProgress(100);
 
-  if (showSplash) return <SplashScreen />;
+      // Wait 800ms before showing analysis (let progress bar complete)
+      const analysisTimer = setTimeout(() => {
+        setAnalysis(propAnalysis);
 
-  if (!analysis)
-    return (
-      <div className="w-full bg-white rounded-xl p-6 shadow-md text-center">
-        {error ? <p className="text-red-500">Error: {error}</p> : <p className="text-gray-500">Loading Smart Prediction...</p>}
-      </div>
-    );
+        // Then trigger fade-in animation after another small delay
+        const fadeTimer = setTimeout(() => setIsMounted(true), 100);
+
+        // Default to 'defend' if user is #1, otherwise 'attack'
+        if (propAnalysis.position?.isTopRanked) {
+          setActiveTab("defend");
+        }
+
+        return () => clearTimeout(fadeTimer);
+      }, 800);
+
+
+      return () => clearTimeout(analysisTimer);
+    }
+  }, [propAnalysis]);
+
+  if (!analysis) return <SplashScreen predictionStatus={predictionStatus} localProgress={localProgress} />;
+
+  // Destructure Data
+  const { catchUp, defense, position } = analysis;
+  const isTopRanked = position?.isTopRanked || false;
+  const isBottomRanked = position?.isBottomRanked || false;
+  const isAttackMode = activeTab === "attack";
+  const primaryMetric = isAttackMode ? catchUp : defense;
+
+  const probabilityLabel = isAttackMode ? "Probability of Overtaking" : "Risk of Overtake";
+  const probabilityValue = isAttackMode ? primaryMetric.overtakeProbability : primaryMetric.overtakeRisk;
+  const probabilityColor = isAttackMode ? ACCENT_COLOR_HEX : "#ef4444";
+  const opponentMomentumLabel = isAttackMode ? "Competitor's Momentum" : "Chaser's Momentum";
+  const opponentMomentumValue = isAttackMode ? primaryMetric.competitorMomentum : primaryMetric.chaserMomentum;
+  const minReq = isAttackMode ? primaryMetric.minRequired : primaryMetric.bufferRecommended;
+  const maxNeed = isAttackMode ? primaryMetric.maxNeeded : (primaryMetric.bufferRecommended * 1.5).toFixed(2);
+  const currentGapOrBuffer = isAttackMode ? primaryMetric.currentGap : primaryMetric.currentBuffer;
+  const summary = primaryMetric.summary
 
   return (
     <div
@@ -196,129 +312,116 @@ export default function SmartPrediction({ myUser, analysis, remaining }) {
         }`}
     >
       {/* Header */}
-      <h3 className={`text-xl font-bold ${ACCENT_COLOR}`}>Smart Prediction</h3>
+      <div className="flex justify-between items-start mb-4">
+        <div className="flex-1">
+          <h3 className={`text-xl font-bold ${ACCENT_COLOR}`}>Smart Prediction</h3>
+          <div className="mt-1 flex items-center gap-2">
+            <span className="text-gray-600 text-sm">You are currently</span>
+            <span className="bg-indigo-600 text-white text-xs font-bold px-2 py-0.5 rounded-full shadow-md">
+              Rank #{myUser?.Rank || "?"}
+            </span>
+          </div>
 
-      <p className="mt-1 text-gray-700 border-b border-indigo-200 pb-4 flex items-center gap-2">
-        You are currently
-        <span className="bg-indigo-600 text-white text-xs font-bold px-2 py-0.5 rounded-full shadow-md">
-          Rank #{myUser.Rank}
-        </span>
-        Donate{" "}
-        <span className={`font-semibold ${ACCENT_COLOR}`}>
-          {analysis.savedKwh} kWh
-        </span>{" "}
-        now to climb!
-      </p>
+          {/* Mini Status bar if refreshing in background */}
+          {predictionStatus && predictionStatus !== "Complete" && (
+            <div className="mt-2 text-[10px] text-gray-400 flex items-center gap-2">
+              <span className="animate-pulse">●</span> Updating live data...
+            </div>
+          )}
+        </div>
+
+        {/* TAB SWITCHER */}
+        <div className="flex bg-gray-100 p-1 rounded-lg">
+          <button
+            onClick={() => setActiveTab("attack")}
+            className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${activeTab === "attack" ? "bg-white text-indigo-600 shadow-sm" : "text-gray-500 hover:text-gray-700"
+              }`}
+          >
+            Climb Rank
+          </button>
+          {!isBottomRanked && (
+            <button
+              onClick={() => setActiveTab("defend")}
+              className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${activeTab === "defend" ? "bg-white text-red-500 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                }`}
+            >
+              Secure Spot
+            </button>
+          )}
+        </div>
+      </div>
 
       {/* Insights Area */}
       <div className={`${SECTION_BG} mt-5 rounded-xl p-6`}>
         <h4 className="text-lg font-bold text-gray-900 mb-4">
-          Actionable Insights to Reach Rank #{myUser.Rank - 1}
+          {isAttackMode
+            ? `Strategy to ${isTopRanked ? "Exceed Your Record" : 'Overtake Rank #' + (myUser?.Rank - 1)}`
+            : `Defensive Strategy vs. Rank #${isBottomRanked ? "None" : myUser?.Rank + 1}`
+          }
         </h4>
 
         <GoalComparisonCard
-          savedKwh={analysis.savedKwh}
-          minRequired={analysis.minRequired}
-          maxNeeded={analysis.maxNeeded}
-          rank={myUser.Rank - 1}
-          remaining={remaining}
+          minRequired={minReq}
+          maxNeeded={maxNeed}
+          currentGap={currentGapOrBuffer}
+          mode={activeTab}
+          rank={myUser?.Rank - 1}
+          summary={summary}
         />
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
           <DataBox>
-            <h5 className="text-lg font-bold text-gray-900 mb-2">
-              Your Chance to Climb Rank
-            </h5>
+            <h5 className="text-lg font-bold text-gray-900 mb-2">{isAttackMode ? "Chance to Climb" : "Defense Status"}</h5>
             <DonutChart
-              percentage={analysis.rankProbability}
-              color={ACCENT_COLOR_HEX}
-              textColor="#f97316"
-              label="Probability of Overtaking"
-              insight={`Based on your current trend, you have a ${analysis.rankProbability}% chance of reaching rank #${myUser.Rank - 1
-                } next month.`}
+              percentage={probabilityValue}
+              color={probabilityColor}
+              textColor={probabilityColor}
+              label={probabilityLabel}
+              insight={!isAttackMode ? `Current risk of being overtaken is ${probabilityValue}%.` : `You have a ${probabilityValue}% probability of ranking up.`}
             />
-            <span style={{ fontSize: "10px", fontWeight: "bold" }}>Actionable Tip:</span>
-            <ul style={{ fontSize: "8px" }}>
-              {analysis.rankProbability > 70 ? (
-                // --- IF Probability is ABOVE 70% (High Confidence) ---
-                <>
-                  <li>1. <b>Secure Rank:</b> You are highly likely to succeed! Focus on consistently exceeding the Maximum Target of {analysis.maxNeeded} kWh to lock in the rank.</li>
-                  <li>2. <b>Sustain Pace:</b> Maintain your current high upward momentum to prevent any last-minute counter-effort from competitors.</li>
-                </>
-              ) : (
-                // --- ELSE Probability is 70% or BELOW (Needs Active Improvement) ---
-                <>
-                  <li>1. <b>Prioritize Target:</b> To significantly improve your odds, consistently aim for the Maximum Target of {analysis.maxNeeded} kWh.</li>
-                  <li>2. <b>Consistency is Key:</b> Implement regular monitoring and maintain consistent contributions to actively increase your probability.</li>
-                </>
-              )}
-            </ul>
           </DataBox>
-
           <DataBox>
-            <h5 className="text-lg font-bold text-gray-900 mb-2">
-              Competitor's Focus Level
-            </h5>
+            <h5 className="text-lg font-bold text-gray-900 mb-2">Opponent Activity</h5>
             <DonutChart
-              percentage={analysis.competitorMomentum}
+              percentage={opponentMomentumValue}
               color="#f97316"
               textColor={ACCENT_COLOR_HEX}
-              label={`Rank #${myUser.Rank - 1} Momentum`}
-              // --- Conditional Insight Implementation ---
-              insight={analysis.competitorMomentum > 70
-                ? "High momentum means your competitor is likely to donate again. Plan for the Maximum Target."
-                : "Lower momentum suggests the competitor is less active. Focus on maintaining your own consistency to easily increase the gap."
-              }
-              percentageColor={ACCENT_COLOR_HEX}
+              label={opponentMomentumLabel}
+              insight={opponentMomentumValue > 70 ? "High activity detected! They are donating frequently." : "Opponent activity is low. Good chance to make a move."}
             />
-            <span style={{ fontSize: "10px", fontWeight: "bold" }}>Actionable Tip:</span>
-            <ul style={{ fontSize: "8px" }}>
-              {analysis.competitorMomentum > 70 ? (
-                // --- IF Competitor Momentum is ABOVE 70% (High Threat) ---
-                <>
-                  <li>1. <b>Mandatory Minimum:</b> You must hit or exceed the Maximum Target of {analysis.maxNeeded} kWh to avoid being surpassed.</li>
-                  <li>2. <b>Immediate Response:</b> Counter every competitor contribution instantly to prevent their momentum from building.</li>
-                </>
-              ) : (
-                // --- ELSE Competitor Momentum is 70% or BELOW (Standard Effort) ---
-                <>
-                  <li>1. <b>Sustained Effort:</b> Focus on consistent, daily contributions to easily surpass the Maximum Target of {analysis.maxNeeded} kWh.</li>
-                  <li>2. <b>Maintain Trajectory:</b> Regularly monitor your own probability and ensure your Donation Momentum remains **Rising** to secure the lead.</li>
-                </>
-              )}
-            </ul>
           </DataBox>
-
           <DataBox>
-            <h5 className="text-lg font-bold text-gray-900 mb-10">
-              Is Your Trajectory Correct?
-            </h5>
-            <TrendIndicator trend={analysis.userTrend} />
+            <h5 className="text-lg font-bold text-gray-900 mb-10">Your Trajectory</h5>
+            <TrendIndicator trend={catchUp.userTrend} />
           </DataBox>
         </div>
 
-        {/* Pro Tip */}
         <div className="mt-8 bg-white rounded-xl p-4 flex items-center gap-2 text-gray-700 border-l-4 border-indigo-400 shadow-inner">
           <span className={`text-xl ${ACCENT_COLOR}`}>💡</span>
           <p className="text-sm">
-            Aim for <strong>{analysis.maxNeeded} kWh</strong> to secure your spot.
-            Top donors often increase contributions near month end.
+            {isAttackMode
+              ? `Aim for ${maxNeed} kWh to guarantee you overtake the competitor.`
+              : `Keeping a buffer of ${maxNeed} kWh ensures you are safe from sudden spikes.`}
           </p>
         </div>
 
-        {/* Tips List */}
         <h4 className="text-lg font-bold text-gray-900 mt-4">
-          Tips to Save More Energy
+          {isAttackMode ? "Overtake Plan: Energy Saving Tips" : "Defense Plan: Sustainability Habits"}
         </h4>
 
         <div className="space-y-3 mt-4">
-          {analysis.tips?.map((tip, i) => (
-            <div
-              key={i}
-              className="bg-white rounded-xl p-4 flex items-center gap-3 text-gray-700 shadow-sm border border-indigo-50"
-            >
-              <span className={`text-lg font-bold ${ACCENT_COLOR}`}>{i + 1}.</span>
-              <p className="text-sm leading-relaxed">{tip}</p>
+          {primaryMetric.tips?.map((tip, i) => (
+            <div key={i} className="bg-white rounded-xl p-4 flex flex-col md:flex-row items-start md:items-center gap-3 text-gray-700 shadow-sm border border-indigo-50">
+              <div className="flex items-center gap-3 flex-1">
+                <span className={`text-lg font-bold ${ACCENT_COLOR}`}>{i + 1}.</span>
+                <div>
+                  <p className="text-sm font-semibold leading-relaxed">{tip.action}</p>
+                  <p className="text-xs text-gray-500 mt-1">Impact: <span className="font-bold text-green-600">+{tip.estimated_kwh} kWh</span></p>
+                </div>
+              </div>
+              <span className={`px-2 py-1 text-xs font-bold uppercase rounded-md whitespace-nowrap ${tip.priority === 'high' ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>
+                {tip.priority} Priority
+              </span>
             </div>
           ))}
         </div>

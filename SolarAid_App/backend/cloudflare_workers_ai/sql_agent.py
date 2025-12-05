@@ -94,7 +94,7 @@ class CloudflareSQLAgent:
         if self.dialect == "postgresql":
             dialect_rules = f"""
             POSTGRESQL-SPECIFIC RULES:
-            - Use double quotes for column and table names with capitals, e.g., "User_ID", "Donation_Amount_kWh", "User", "Donation".
+            - Use double quotes for column and table names with capitals, e.g., "User_ID", "User", "Transaction".
             - Stick to simple queries: SELECT, JOIN, GROUP BY, ORDER BY.
             - Avoid window functions (ROW_NUMBER, RANK) and nested subqueries when possible.
             """
@@ -136,8 +136,15 @@ class CloudflareSQLAgent:
                     "system",
                     """You are a helpful assistant. Convert SQL query results into answers.
                     Be concise and direct. If the results are empty, say so clearly.
+                    
+                    IMPORTANT: When results contain a single value in format [(value,)]:
+                    - Extract and return ONLY the value itself
+                    - Example: [(1008,)] return: 1008
+                    - Example: [('John',)] return: John
+                    - Only return "null" if results are [] or [(None,)]
+                
                     If the user requests JSON, output strictly valid JSON with the requested fields.
-                    Do not add explanations or markdown outside the JSON.""",
+                    Do not add explanations or markdown outside the JSON."""
                 ),
                 (
                     "user",
@@ -185,7 +192,7 @@ class CloudflareSQLAgent:
         except Exception as e:
             raise RuntimeError(f"Query execution failed: {e}")
 
-    def query(self, question: str, return_sql: bool = False, output_format: str = "text") -> Dict[str, Any]:
+    def query(self, question: str, output_format: str = "text", return_raw: bool = False) -> Dict[str, Any]:
         """
         Main method: Convert natural language to SQL, execute, and return answer.
 
@@ -206,6 +213,10 @@ class CloudflareSQLAgent:
             if self.verbose:
                 print(f"\nQuery Results:\n{results}")
 
+            # If return_raw is True, return the raw results directly
+            if return_raw:
+                return {"sql": sql, "raw_results": results}
+
             # Step 3: Generate natural language answer / JSON formatted output
             answer_chain = self.answer_prompt | self.llm
             final_answer = answer_chain.invoke(
@@ -214,17 +225,13 @@ class CloudflareSQLAgent:
 
             response = {"answer": final_answer.content}
 
-            if return_sql:
-                response["sql"] = sql
-                response["results"] = results
-
             if self.verbose:
                 print(f"\nFinal Answer:\n{response['answer']}\n")
 
             return response
 
         except Exception as e:
-            print(error_msg=str(e))
+            print(f"Error: {e}")
 
     def batch_query(self, questions: List[str]) -> List[Dict[str, Any]]:
         """
@@ -269,7 +276,7 @@ def create_agent_from_env(
     )
 
 
-# --- Example Usage For Debugging Purposes ---
+# --- Example Usage For Testing Purposes ---
 if __name__ == "__main__":
     agent = create_agent_from_env(verbose=True)
 
