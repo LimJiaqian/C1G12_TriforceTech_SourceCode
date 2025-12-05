@@ -5,7 +5,6 @@ Handles audio transcription via AssemblyAI and knowledge base updates via JamAI
 
 import os
 import time
-import re
 import assemblyai as aai
 from jamaibase import JamAI
 from jamaibase import types as p
@@ -150,6 +149,16 @@ def upload_to_knowledge_base(transcript_text: str, metadata: dict = None) -> dic
 def process_enquiry(input_data: str, input_type: str = 'text') -> dict:
     """
     Process user enquiry - handles both audio and text inputs
+    
+    Args:
+        input_data (str): Either audio file path or text query
+        input_type (str): 'audio_path' or 'text'
+        
+    Returns:
+        dict: Processing result with transcript/text and metadata
+        
+    Raises:
+        Exception: If processing fails
     """
     try:
         if input_type == 'audio_path':
@@ -159,27 +168,33 @@ def process_enquiry(input_data: str, input_type: str = 'text') -> dict:
             transcription_result = transcribe_audio(input_data)
             transcript_text = transcription_result["text"]
             
-            # Step 2: Upload to knowledge base (Background task)
+            # Step 2: Upload to knowledge base (optional - skip if table doesn't exist)
+            upload_result = {"success": False, "skipped": True}
             try:
-                upload_to_knowledge_base(
+                upload_result = upload_to_knowledge_base(
                     transcript_text=transcript_text,
                     metadata={
                         "audio_id": transcription_result.get("id"),
                         "audio_duration": transcription_result.get("audio_duration")
                     }
                 )
+                print("Knowledge base upload successful")
+                
             except Exception as upload_error:
-                print(f"KB upload skipped: {upload_error}")
-
-            # Step 3: IMMEDIATE HANDOFF -> Query the Chatbot with the transcript
-            # This is the missing link that was causing your issue
-            print(f"Audio transcribed. sending to JamAI Chat: {transcript_text[:50]}...")
-            return query_jamai_chat(transcript_text)
+                print(f"Knowledge base upload skipped: {upload_error}")
+                print("   (Continuing with transcription only)")
+            
+            return {
+                "success": True,
+                "type": "audio",
+                "transcript": transcript_text,
+                "transcription_metadata": transcription_result,
+                "knowledge_base_result": upload_result
+            }
             
         elif input_type == 'text':
             print(f"Processing text enquiry: {input_data[:100]}...")
-            # For text, we assume the caller will call query_jamai_chat separately 
-            # OR we can just return the text payload as you had before.
+            
             return {
                 "success": True,
                 "type": "text",
@@ -187,7 +202,7 @@ def process_enquiry(input_data: str, input_type: str = 'text') -> dict:
             }
             
         else:
-            raise ValueError(f"Invalid input_type: {input_type}")
+            raise ValueError(f"Invalid input_type: {input_type}. Must be 'audio_path' or 'text'")
             
     except Exception as e:
         print(f"Enquiry processing error: {e}")
@@ -199,86 +214,144 @@ def process_enquiry(input_data: str, input_type: str = 'text') -> dict:
 
 
 def query_jamai_chat(query_text: str, table_id: str = "Chatbox") -> dict:
+    """
+    Query the JamAI Action Table for a response
+    
+    Args:
+        query_text (str): The user's query
+        table_id (str): JamAI Action Table ID (default: "Chatbox")
+        
+    Returns:
+        dict: Response from JamAI Action Table
+        
+    Raises:
+        Exception: If query fails
+    """
     if not VITE_JAM_API_KEY or not VITE_JAM_PROJECT_ID:
-        raise ValueError("API Keys missing")
+        raise ValueError("VITE_JAM_API_KEY or VITE_JAM_PROJECT_ID not found in environment variables")
     
     try:
         print(f"Querying JamAI Action Table: {table_id}")
-        jamai = JamAI(token=VITE_JAM_API_KEY, project_id=VITE_JAM_PROJECT_ID)
         
+        # Initialize JamAI client
+        jamai = JamAI(
+            token=VITE_JAM_API_KEY,
+            project_id=VITE_JAM_PROJECT_ID
+        )
+        
+        # Create request
         add_request = p.RowAddRequest(
             table_id=table_id,
             data=[{"Input_text": query_text}],
             stream=False
         )
         
+        # Query action table
         response = jamai.table.add_table_rows(
             table_type="action",
             request=add_request
         )
         
+        # --- ROBUST PARSING LOGIC ---
+        # Handles both Dictionary (old SDK) and Pydantic Model (new SDK)
         response_text = ""
+        
+        print(f"[DEBUG] Response object type: {type(response)}")
+        print(f"[DEBUG] Has rows: {hasattr(response, 'rows')}")
         
         if response.rows:
             row = response.rows[0]
             columns = row.columns
             
-            # Get the raw object/dict/string
-            target_col = None
+            print(f"[DEBUG] Columns type: {type(columns)}")
+            
+            # Handle both Dictionary and Pydantic Model
             if isinstance(columns, dict):
+                # Dictionary access
                 target_col = columns.get("Final_response")
+                print(f"[DEBUG] Got Final_response from dict")
             else:
+                # Pydantic Model access
                 target_col = getattr(columns, "Final_response", None)
+                print(f"[DEBUG] Got Final_response from Pydantic model")
 
-            # --- THE FIX: AGGRESSIVE PARSING ---
-            
-            # 1. If it is already a simple string, check if it's the "messy" metadata string
-            if isinstance(target_col, str):
-                # Check for that specific "id='chatcmpl" pattern you are seeing
-                if "id='chatcmpl" in target_col or "ChatCompletion" in target_col:
-                    print("[DEBUG] Detected raw object string. Attempting Regex extraction...")
-                    # Regex to find content='...' (handling newlines with DOTALL)
-                    match = re.search(r"content='(.*?)'(?:, role=|, function_call=)", target_col, re.DOTALL)
-                    if not match:
-                        # Try double quotes just in case
-                        match = re.search(r'content="(.*?)"(?:, role=|, function_call=)', target_col, re.DOTALL)
-                    
-                    if match:
-                        response_text = match.group(1)
-                        # Clean up escaped newlines often found in raw repr strings
-                        response_text = response_text.encode('utf-8').decode('unicode_escape')
+            # Extract actual text value safely - OpenAI-style structure
+            if target_col:
+                print(f"[DEBUG] target_col type: {type(target_col)}")
+                print(f"[DEBUG] target_col type name: {type(target_col).__name__}")
+                
+                # Check if it's a Pydantic model with model_dump
+                if hasattr(target_col, 'model_dump'):
+                    print(f"[DEBUG] ⚠️ Found Pydantic model - converting to dict")
+                    target_col = target_col.model_dump()
+                    print(f"[DEBUG] Converted to dict, keys: {list(target_col.keys())[:10]}")
+                
+                # If it's a dictionary (CHECK THIS FIRST after potential model_dump)
+                if isinstance(target_col, dict):
+                    # Try OpenAI dict structure: {'choices': [{'message': {'content': '...'}}]}
+                    if 'choices' in target_col and len(target_col['choices']) > 0:
+                        try:
+                            content = target_col['choices'][0]['message']['content']
+                            response_text = str(content)
+                            print(f"[DEBUG] Extracted from OpenAI dict structure")
+                        except (KeyError, IndexError) as e:
+                            print(f"[DEBUG] OpenAI dict parse error: {e}")
+                            response_text = "Error: Invalid OpenAI dict structure."
                     else:
-                        response_text = "Error: Could not extract message content from raw response."
+                        # Fallback: try standard fields
+                        response_text = str(target_col.get("text") or target_col.get("value") or target_col.get("content") or "")
+                        print(f"[DEBUG] Extracted from dict fallback")
+                
+                # If it's a string already (check for stringified object)
+                elif isinstance(target_col, str):
+                    # Check if it's a stringified object (starts with class name)
+                    if target_col.startswith("ChatCompletion") or "choices=" in target_col:
+                        print(f"[DEBUG] Detected stringified object - cannot parse")
+                        response_text = "Error: Received stringified object instead of proper structure."
+                    else:
+                        response_text = target_col
+                        print(f"[DEBUG] Already a clean string")
+                
+                # Other attribute-based objects
+                elif hasattr(target_col, "text"):
+                    response_text = str(target_col.text)
+                    print(f"[DEBUG] Extracted from .text attribute")
+                elif hasattr(target_col, "value"):
+                    response_text = str(target_col.value)
+                    print(f"[DEBUG] Extracted from .value attribute")
+                elif hasattr(target_col, "content"):
+                    response_text = str(target_col.content)
+                    print(f"[DEBUG] Extracted from .content attribute")
+                
                 else:
-                    response_text = target_col
-            
-            # 2. If it is a Pydantic object (The "Correct" way)
-            elif hasattr(target_col, 'choices'):
-                try:
-                    response_text = target_col.choices[0].message.content
-                except:
-                    response_text = str(target_col)
-
-            # 3. If it is a Dict (The other "Correct" way)
-            elif isinstance(target_col, dict):
-                try:
-                    response_text = target_col['choices'][0]['message']['content']
-                except:
-                    response_text = str(target_col)
-            
+                    print(f"[DEBUG] Unknown structure - checking __dict__")
+                    if hasattr(target_col, '__dict__'):
+                        print(f"[DEBUG] Object attributes: {list(target_col.__dict__.keys())}")
+                    response_text = "Error: Unable to extract response text from unknown structure."
+                    
             else:
-                response_text = str(target_col)
-
+                response_text = "Error: 'Final_response' column missing."
+        else:
+            response_text = "Error: No response received from JamAI."
+        # ---------------------------------
+        
+        print(f"Received response from JamAI: {response_text[:100]}...")
+        
+        # Return JamAI response directly
         return {
             "success": True,
-            "response": response_text.strip(), # This is the clean text
+            "response": response_text.strip(),
             "table_id": table_id
         }
         
     except Exception as e:
         print(f"JamAI query error: {e}")
+        import traceback
+        traceback.print_exc()
+        
+        # Return safe fallback so frontend doesn't crash
         return {
             "success": False,
-            "response": "Connection error.",
+            "response": "I'm having trouble connecting to my brain right now. Please try again in a moment.",
             "error": str(e)
         }
