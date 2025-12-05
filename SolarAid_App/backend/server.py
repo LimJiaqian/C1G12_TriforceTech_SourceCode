@@ -4,11 +4,16 @@ from backend.sealion_ai.area_detection import get_top5_energy_need
 from backend.sealion_ai.thanks_ai import generate_thankyou_message
 from backend.sealion_ai.certificate_generator import generate_certificate
 from backend.database.supabase import supabase
-from backend.cloudflare_workers_ai.prediction_agent import (
+from backend.cloudflare_workers_ai.optimized_prediction_agent import (
     create_prediction_agent_from_env,
 )
 from backend.cloudflare_workers_ai.sql_agent import create_agent_from_env
-from backend.cloudflare_workers_ai.research_agent import create_energy_agent_from_env
+from backend.cloudflare_workers_ai.optimized_research_agent import create_energy_agent_from_env
+from flask import Response, stream_with_context
+import json
+import queue
+import threading
+
 
 app = Flask(__name__)
 CORS(app)
@@ -154,6 +159,7 @@ def get_user_position(user_id):
 @app.get("/api/user/<int:user_id>/previous")
 def get_previous_ranker(user_id):
     try:
+        # Query all users sorted by donate amount
         result = (
             supabase.table("user")
             .select("User_ID, User_Name, User_Img, Donate_Amount")
@@ -161,19 +167,32 @@ def get_previous_ranker(user_id):
             .execute()
         )
 
-        users = result.data
+        users = result.data or []
+
+        # Nothing in DB
+        if len(users) == 0:
+            return jsonify({"message": "No users found"}), 404
+
+        # Assign rank
         for i, u in enumerate(users):
             u["Rank"] = i + 1
 
-        # find current rank
-        my_index = next(
-            (i for i, u in enumerate(users) if u["User_ID"] == user_id), None
-        )
-        if my_index is None or my_index == 0:
-            return jsonify({"message": "No one ahead"}), 404
+        # Find requested user
+        my_index = next((i for i, u in enumerate(users) if u["User_ID"] == user_id), None)
 
+        if my_index is None:
+            return jsonify({"message": "User not found"}), 404
+
+        # If user is already #1
+        if my_index == 0:
+            return jsonify({
+                "message": "You are currently rank 1 — no previous ranker."
+            }), 200  # success, but no previous user
+
+        # Otherwise return the previous ranker
         previous_user = users[my_index - 1]
-        return jsonify(previous_user)
+
+        return jsonify(previous_user), 200
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -227,53 +246,81 @@ def get_user_profile(user_id):
         return jsonify({"error": str(e)}), 500
 
 
-sql_agent = create_agent_from_env(verbose=False)
-research_agent = create_energy_agent_from_env(verbose=False)
+sql_agent = create_agent_from_env(verbose=True)
+research_agent = create_energy_agent_from_env(verbose=True)
 prediction_agent = create_prediction_agent_from_env(
-    sql_agent, research_agent, verbose=False
+    sql_agent=sql_agent,
+    research_agent=research_agent,
+    verbose=True,
+    enable_external_context=True,
+    cache_ttl=300,
+    status_callback=None  
 )
 
 
 @app.route("/api/predict/<int:user_id>", methods=["GET"])
-def get_prediction(user_id):
-    """
-    Analyzes user and competitor data, and external context to generate
-    energy savings predictions for a given user_id.
-    """
-    if prediction_agent is None:
-        return (
-            jsonify(
-                {
-                    "error": "Service Unavailable",
-                    "detail": "Prediction agents failed to initialize on startup.",
-                }
-            ),
-            503,
-        )
-
-    try:
-        # Call the core prediction logic
-        print(f"\n--- Calling predict_savings for user_id: {user_id} ---")
-        result = prediction_agent.predict_savings(user_id=user_id)
-        print(result)
-
-        # Flask's jsonify automatically handles serialization
-        return jsonify(result), 200
-
-    except ValueError as e:
-        # Handle errors during data fetching (e.g., user not found, SQL error)
-        return jsonify({"error": "Invalid Data or Request", "detail": str(e)}), 400
-    except Exception as e:
-        # Handle general processing errors (e.g., LLM generation failure)
-        return (
-            jsonify(
-                {
-                    "error": "Internal Server Error",
-                    "detail": f"Prediction processing error: {str(e)}",
-                }
-            ),
-            500,
-        )
+def predict_with_status(user_id):
+    def generate():
+        # Queue to collect status updates
+        status_queue = queue.Queue()
+        result_container = {'result': None, 'error': None}
+        
+        def status_callback(status):
+            # Put status in queue for streaming
+            status_queue.put(status)
+        
+        def run_prediction():
+            try:
+                # Run prediction with callback
+                result = prediction_agent.predict_savings(
+                    user_id, 
+                    force_refresh=False,
+                    callback=status_callback  
+                )
+                result_container['result'] = result
+            except Exception as e:
+                result_container['error'] = str(e)
+            finally:
+                # Signal completion
+                status_queue.put(None)
+        
+        # Start prediction in background thread
+        thread = threading.Thread(target=run_prediction)
+        thread.start()
+        
+        # Stream status updates
+        while True:
+            try:
+                status = status_queue.get(timeout=30)
+                
+                if status is None:
+                    # Prediction complete
+                    break
+                
+                # Send status update as SSE
+                yield f"data: {json.dumps(status)}\n\n"
+                
+            except queue.Empty:
+                # Timeout - send keepalive
+                yield f"data: {json.dumps({'message': 'Processing...', 'progress': 50})}\n\n"
+        
+        # Wait for thread to finish
+        thread.join(timeout=5)
+        
+        # Send final result or error
+        if result_container['error']:
+            yield f"data: {json.dumps({'error': result_container['error'], 'complete': True})}\n\n"
+        else:
+            yield f"data: {json.dumps({'result': result_container['result'], 'complete': True})}\n\n"
+    
+    return Response(
+        stream_with_context(generate()), 
+        mimetype='text/event-stream',
+        headers={
+            'Cache-Control': 'no-cache',
+            'X-Accel-Buffering': 'no'
+        }
+    )
     
 @app.post("/api/donate")
 def donate_energy():
