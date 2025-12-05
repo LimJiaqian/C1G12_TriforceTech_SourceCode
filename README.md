@@ -74,7 +74,7 @@ Considers:
 - Malaysian cultural context & “Adab” (humility, communal tone)
 - Manglish / local language flavor for relatability
 
-2. **Future Donation Prediction (Gemini)**
+2. **Future Donation Prediction**
 Provides:
 - Recommended minimum & maximum kWh
 - Personalized summary
@@ -106,7 +106,7 @@ RAG Source Files:
 - The_Fiqh_of_Energy.docx	Islamic rulings: Nisab, Asnaf, Sadaqah Jariyah
 - Beneficiary_Map.csv	Village list and rural electrification context
 - NEM_Malaysia_Rules.pdf	Legal compliance under NEM 3.0
-- Impact_Formulas.txt	Convert kWh → CO₂ → impact stories
+- Impact_Formulas.txt — kWh -> financial impact -> how many people benefit.
 
 ![SolarAid Banner](SolarAid_App/public/tech_stack.png)
 
@@ -125,6 +125,8 @@ RAG Source Files:
 - Gemini API
 - RAG indexing
 - Certificate generator
+- Jam Ai API
+- Assembly AI transcript
 
 # Folder Structure
 ```
@@ -207,5 +209,5 @@ npm run dev
   - #6C00FF
 - **Style**: Rounded corners, shadows, clean spacing
 
-** Malaysia is rich in sunlight and kindness. ** 
-** SolarAid turns both into clean energy, sustainable charity, and community empowerment. **
+**Malaysia is rich in sunlight and kindness.** 
+**SolarAid turns both into clean energy, sustainable charity, and community empowerment.**
