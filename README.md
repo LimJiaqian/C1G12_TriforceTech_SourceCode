@@ -74,14 +74,13 @@ Considers:
 - Malaysian cultural context & “Adab” (humility, communal tone)
 - Manglish / local language flavor for relatability
 
-2. **Future Donation Prediction (Gemini)**
+2. **Future Donation Prediction (Cloudflare Workers AI)**
 Provides:
-- Recommended minimum & maximum kWh
-- Personalized summary
+- Personalized catch-up strategy and Defense strategy
 Considers:
 - Weather seasonality
-- Work from home trends
-- Malaysia TNB statistics
+- Holidays 
+- User Loation
 - User’s historical donation pattern
 
 3. **Location-Based Donation Targeting (Sealion)**
@@ -122,7 +121,10 @@ RAG Source Files:
 ## Backend
 - Python Flask
 - Sealion API
-- Gemini API
+- Cloudflare Workers AI
+- Tavily Search
+- Supabase
+- langchain
 - RAG indexing
 - Certificate generator
 
@@ -149,16 +151,16 @@ SDG7_Affordable_and_Clean_Energy_TriforceTech/
 │   │   └── App.jsx
 │   ├── backend/
 │   │   ├── server.py
-│   │   ├── analytics.py
 │   │   ├── sealion_ai/
 │   │   │   ├── __init__.py
 │   │   │   ├── area_detection.py
 │   │   │   ├── certificate.py
 │   │   │   └── thanks_ai.py
-│   │   ├── gemini_ai/
+│   │   ├── cloudflare_workers_ai/
 │   │   │   ├── __init__.py
-│   │   │   ├── ai_agent.py
-│   │   │   └── .env
+│   │   │   ├── optimized_prediction_agent.py
+│   │   │   └── optimized_research_agent.py
+│   │   │   └── sql_agent.py
 │   │   ├── dataset/
 │   │   │   ├── donations.csv
 │   │   │   └── donors.csv
