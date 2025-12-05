@@ -1,0 +1,247 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Poppins', sans-serif;
+  background-color: #FFFFFF;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* Smooth scroll */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Scroll animations */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.fade-in-up {
+  animation: fadeInUp 0.8s ease-out forwards;
+}
+
+.fade-in {
+  animation: fadeIn 0.6s ease-out forwards;
+}
+
+/* Animations */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.animate-float {
+  animation: float 4s ease-in-out infinite;
+}
+
+.animate-float-delayed {
+  animation: float 4s ease-in-out 1s infinite;
+  animation: float 3s ease-in-out infinite;
+  animation-delay: 1s;
+}
+
+/* 3D Globe Container */
+.globe-container {
+  width: 350px;
+  height: 350px;
+  position: relative;
+  perspective: 800px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.globe {
+  width: 300px;
+  height: 300px;
+  position: relative;
+  transform-style: preserve-3d;
+  animation: spinGlobe 20s linear infinite;
+}
+
+/* Vertical longitude rings to create sphere shape */
+.globe-ring {
+  position: absolute;
+  width: 300px;
+  height: 300px;
+  border: 2px solid rgba(77, 168, 218, 0.2);
+  border-radius: 50%;
+  left: 0;
+  top: 0;
+  transform-style: preserve-3d;
+}
+
+/* Horizontal latitude circles */
+.globe-latitude {
+  position: absolute;
+  border: 2px solid rgba(77, 168, 218, 0.15);
+  border-radius: 50%;
+  left: 50%;
+  top: 50%;
+  transform-origin: center;
+  transform-style: preserve-3d;
+  margin-left: -100px;
+  margin-top: -100px;
+}
+
+/* Main sphere surface with continents */
+.globe-surface {
+  position: absolute;
+  width: 300px;
+  height: 300px;
+  border-radius: 50%;
+  left: 0;
+  top: 0;
+  background: 
+    radial-gradient(circle at 35% 30%, #5bc5f2 0%, #4DA8DA 35%, #3690c2 65%, #2674a3 100%);
+  box-shadow: 
+    inset -80px -80px 120px rgba(0, 0, 0, 0.6),
+    inset 40px 40px 100px rgba(255, 255, 255, 0.1),
+    0 40px 80px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+  transform-style: preserve-3d;
+}
+
+/* Add continents using pseudo-elements */
+.globe-surface::before {
+  content: '';
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background-image:
+    /* Africa */
+    radial-gradient(ellipse 45px 70px at 48% 45%, rgba(31, 125, 83, 0.95) 0%, transparent 65%),
+    /* South America */
+    radial-gradient(ellipse 35px 65px at 35% 55%, rgba(40, 145, 73, 0.9) 0%, transparent 70%),
+    /* North America */
+    radial-gradient(ellipse 60px 80px at 25% 30%, rgba(31, 125, 83, 0.9) 0%, transparent 70%),
+    /* Europe */
+    radial-gradient(ellipse 35px 30px at 52% 25%, rgba(35, 135, 68, 0.85) 0%, transparent 70%),
+    /* Asia */
+    radial-gradient(ellipse 90px 70px at 70% 28%, rgba(31, 125, 83, 0.92) 0%, transparent 70%),
+    /* Australia */
+    radial-gradient(ellipse 30px 35px at 75% 65%, rgba(40, 145, 73, 0.88) 0%, transparent 70%);
+  animation: rotateContinents 20s linear infinite;
+}
+
+/* Clouds layer */
+.globe-surface::after {
+  content: '';
+  position: absolute;
+  width: 105%;
+  height: 105%;
+  top: -2.5%;
+  left: -2.5%;
+  border-radius: 50%;
+  background-image:
+    radial-gradient(ellipse 50px 35px at 30% 25%, rgba(255, 255, 255, 0.4) 0%, transparent 60%),
+    radial-gradient(ellipse 45px 30px at 65% 35%, rgba(255, 255, 255, 0.35) 0%, transparent 60%),
+    radial-gradient(ellipse 40px 32px at 50% 60%, rgba(255, 255, 255, 0.3) 0%, transparent 60%),
+    radial-gradient(ellipse 55px 38px at 20% 70%, rgba(255, 255, 255, 0.38) 0%, transparent 60%);
+  animation: rotateClouds 30s linear infinite;
+}
+
+/* Atmospheric glow */
+.globe-atmosphere {
+  position: absolute;
+  width: 320px;
+  height: 320px;
+  border-radius: 50%;
+  left: -10px;
+  top: -10px;
+  background: radial-gradient(circle at 30% 28%, 
+    rgba(255, 255, 255, 0.5) 0%, 
+    rgba(255, 255, 255, 0.3) 18%,
+    rgba(135, 206, 250, 0.2) 35%,
+    rgba(77, 168, 218, 0.15) 50%,
+    transparent 70%);
+  pointer-events: none;
+  animation: atmosphereGlow 8s ease-in-out infinite;
+}
+
+@keyframes spinGlobe {
+  0% {
+    transform: rotateY(0deg) rotateX(-15deg);
+  }
+  100% {
+    transform: rotateY(360deg) rotateX(-15deg);
+  }
+}
+
+@keyframes rotateContinents {
+  0% {
+    transform: rotateY(0deg);
+  }
+  100% {
+    transform: rotateY(360deg);
+  }
+}
+
+@keyframes rotateClouds {
+  0% {
+    transform: rotateY(0deg) rotateZ(0deg);
+  }
+  100% {
+    transform: rotateY(360deg) rotateZ(5deg);
+  }
+}
+
+@keyframes atmosphereGlow {
+  0%, 100% {
+    opacity: 0.8;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.02);
+  }
+}
+

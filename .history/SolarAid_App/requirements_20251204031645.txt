@@ -1,0 +1,10 @@
+flask==3.0.0
+flask-cors==4.0.0
+requests==2.31.0
+python-dotenv==1.0.0
+Pillow==10.1.0
+pandas==2.0.0
+google-generativeai==0.8.5
+assemblyai==0.30.0
+jamaibase==0.3.18
+supabase==2.0.0
