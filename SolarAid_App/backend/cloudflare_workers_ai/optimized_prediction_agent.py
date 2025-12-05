@@ -1,7 +1,10 @@
 import os
 import json
 import time
-from typing import Dict, Any, Optional
+import json
+from ast import literal_eval
+
+from typing import Dict, Any, Optional, Union
 from datetime import date, datetime
 from functools import lru_cache
 from concurrent.futures import ThreadPoolExecutor
@@ -9,6 +12,7 @@ from dotenv import load_dotenv
 from langchain_cloudflare import ChatCloudflareWorkersAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
+
 
 
 class PredictionCache:
@@ -918,10 +922,7 @@ def create_prediction_agent_from_env(
         status_callback=status_callback,
         **kwargs,
     )
-import json
-from ast import literal_eval
-from datetime import datetime
-from typing import Any, Dict, Union
+
 
 def safe_extract(result: Union[Dict[str, Any], str], default_user_id: str = None) -> Dict[str, Any]:
     """
