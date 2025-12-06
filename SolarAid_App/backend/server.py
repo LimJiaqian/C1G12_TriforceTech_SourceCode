@@ -1,3 +1,4 @@
+import re
 from flask import Flask, jsonify, make_response, request
 from flask_cors import CORS
 from backend.sealion_ai.area_detection import get_top5_energy_need
@@ -13,10 +14,26 @@ from flask import Response, stream_with_context
 import json
 import queue
 import threading
+from backend.jamai_ai.audio_bridge import process_enquiry, query_jamai_chat
+import os
+from datetime import datetime
+from werkzeug.utils import secure_filename
 
 
 app = Flask(__name__)
 CORS(app)
+
+# Configure upload folder for audio files
+UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'uploads')
+ALLOWED_AUDIO_EXTENSIONS = {'mp3', 'wav', 'flac', 'ogg', 'm4a', 'webm'}
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max file size
+
+def allowed_audio_file(filename):
+    """Check if file extension is allowed"""
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_AUDIO_EXTENSIONS
 
 @app.post("/api/login")
 def login():
@@ -260,67 +277,66 @@ prediction_agent = create_prediction_agent_from_env(
 
 @app.route("/api/predict/<int:user_id>", methods=["GET"])
 def predict_with_status(user_id):
+    force_refresh = request.args.get("force_refresh", "false").lower() == "true"
+
     def generate():
-        # Queue to collect status updates
+
         status_queue = queue.Queue()
-        result_container = {'result': None, 'error': None}
-        
+        result_container = {"result": None, "error": None}
+
+        # Callback for prediction process
         def status_callback(status):
-            # Put status in queue for streaming
             status_queue.put(status)
-        
+
         def run_prediction():
             try:
-                # Run prediction with callback
                 result = prediction_agent.predict_savings(
-                    user_id, 
-                    force_refresh=False,
-                    callback=status_callback  
+                    user_id,
+                    force_refresh=force_refresh,
+                    callback=status_callback
                 )
-                result_container['result'] = result
+                result_container["result"] = result
             except Exception as e:
-                result_container['error'] = str(e)
+                result_container["error"] = str(e)
             finally:
-                # Signal completion
+                # Signal completion to the SSE stream
                 status_queue.put(None)
-        
-        # Start prediction in background thread
+
+        # Background prediction thread
         thread = threading.Thread(target=run_prediction)
+        thread.daemon = True
         thread.start()
-        
-        # Stream status updates
+
+        # Stream SSE updates
         while True:
             try:
                 status = status_queue.get(timeout=30)
-                
+
                 if status is None:
-                    # Prediction complete
-                    break
-                
-                # Send status update as SSE
+                    break  # prediction finished
+
                 yield f"data: {json.dumps(status)}\n\n"
-                
+
             except queue.Empty:
-                # Timeout - send keepalive
-                yield f"data: {json.dumps({'message': 'Processing...', 'progress': 50})}\n\n"
-        
-        # Wait for thread to finish
+                # Keep-alive ping
+                yield "data: {\"message\": \"Processing...\", \"keepalive\": true}\n\n"
+
         thread.join(timeout=5)
-        
-        # Send final result or error
-        if result_container['error']:
+
+        if result_container["error"]:
             yield f"data: {json.dumps({'error': result_container['error'], 'complete': True})}\n\n"
         else:
             yield f"data: {json.dumps({'result': result_container['result'], 'complete': True})}\n\n"
-    
+
     return Response(
-        stream_with_context(generate()), 
-        mimetype='text/event-stream',
+        stream_with_context(generate()),
+        mimetype="text/event-stream",
         headers={
-            'Cache-Control': 'no-cache',
-            'X-Accel-Buffering': 'no'
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no"
         }
     )
+
     
 @app.post("/api/donate")
 def donate_energy():
@@ -428,6 +444,165 @@ def get_transactions(user_id):
     except Exception as e:
         print("GET TRANSACTIONS ERROR:", e)
         return jsonify({"error": str(e)}), 500
+
+# ========================================
+# VOICE-TO-RAG CHAT ENQUIRY ENDPOINT
+# ========================================
+@app.route("/api/chat-enquiry", methods=["POST"])
+def chat_enquiry():
+    """
+    Handle chat enquiries with both audio and text input support
+    
+    Accepts:
+    - multipart/form-data with 'audio' file (mp3, wav, etc.)
+    - application/json with 'text' field
+    
+    Returns:
+    - AI response from JamAI Action Table
+    """
+    try:
+        print("\n" + "="*60)
+        print("NEW CHAT ENQUIRY REQUEST")
+        print(f"Content-Type: {request.content_type}")
+        print(f"Request files: {list(request.files.keys())}")
+        print(f"Request form: {list(request.form.keys())}")
+        print("="*60 + "\n")
+        
+        query_text = None
+        processing_result = None
+        
+        # Check if request contains a file (audio input)
+        if 'audio' in request.files:
+            audio_file = request.files['audio']
+            
+            # Validate file
+            if audio_file.filename == '':
+                return jsonify({"error": "No audio file selected"}), 400
+            
+            if not allowed_audio_file(audio_file.filename):
+                return jsonify({
+                    "error": f"Invalid file type. Allowed: {', '.join(ALLOWED_AUDIO_EXTENSIONS)}"
+                }), 400
+            
+            # Save audio file temporarily
+            filename = secure_filename(audio_file.filename)
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            unique_filename = f"{timestamp}_{filename}"
+            audio_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+            
+            print(f"Saving audio file...")
+            print(f"   - Original filename: {audio_file.filename}")
+            print(f"   - Secure filename: {filename}")
+            print(f"   - Unique filename: {unique_filename}")
+            print(f"   - Full path: {audio_path}")
+            
+            audio_file.save(audio_path)
+            file_size = os.path.getsize(audio_path)
+            print(f"Audio file saved successfully!")
+            print(f"   - Size: {file_size} bytes ({file_size/1024:.2f} KB)")
+            
+            try:
+                # Process audio enquiry (transcribe + upload to knowledge base)
+                print(f"Starting audio processing (transcription + RAG)...")
+                processing_result = process_enquiry(audio_path, input_type='audio_path')
+                print(f"Audio processing completed!")
+                
+                if not processing_result.get("success"):
+                    error_msg = processing_result.get("error", "Unknown error")
+                    print(f"Audio processing failed: {error_msg}")
+                    return jsonify({
+                        "error": "Audio processing failed",
+                        "details": error_msg
+                    }), 500
+                
+                # Extract transcript for chat query
+                query_text = processing_result.get("transcript")
+                print(f"Transcript extracted: {query_text[:100]}..." if len(query_text) > 100 else f"📝 Transcript: {query_text}")
+                
+            finally:
+                # Clean up: delete temporary audio file
+                try:
+                    if os.path.exists(audio_path):
+                        os.remove(audio_path)
+                        print(f"Temporary file deleted: {audio_path}")
+                except Exception as cleanup_error:
+                    print(f"Cleanup warning: {cleanup_error}")
+        
+        # Check if request contains text input
+        elif request.is_json:
+            data = request.json
+            query_text = data.get("text")
+            
+            if not query_text:
+                return jsonify({"error": "No text provided"}), 400
+            
+            # Process text enquiry
+            processing_result = process_enquiry(query_text, input_type='text')
+        
+        # Check for form data (alternative text input)
+        elif 'text' in request.form:
+            query_text = request.form.get('text')
+            
+            if not query_text:
+                return jsonify({"error": "No text provided"}), 400
+            
+            # Process text enquiry
+            processing_result = process_enquiry(query_text, input_type='text')
+        
+        else:
+            return jsonify({
+                "error": "Invalid request. Send either 'audio' file or 'text' field"
+            }), 400
+        
+        # Query JamAI Action Table for response
+        if not query_text:
+            return jsonify({"error": "No query text generated"}), 500
+        
+        chat_response = query_jamai_chat(query_text)
+        
+        if not chat_response.get("success"):
+            return jsonify({
+                "error": "Failed to get chat response",
+                "details": str(chat_response)
+            }), 500
+        
+        # --- Extract only the assistant text ---
+        raw_response = chat_response.get("response", "")
+
+        # Match content inside either single or double quotes (non-greedy)
+        match = re.search(r'content=(?P<quote>["\'])(.*?)\1', raw_response, re.DOTALL)
+
+        # If match fails, fallback to full response
+        assistant_text = match.group(2) if match else raw_response
+
+        # Replace literal \n with actual newlines
+        assistant_text = assistant_text.replace("\\n", "\n").strip()
+
+        # Build response to frontend
+        response_data = {
+            "success": True,
+            "query": query_text,
+            "response": assistant_text,   # <-- only assistant text
+            "input_type": processing_result.get("type") if processing_result else "text"
+        }
+
+        if processing_result and processing_result.get("type") == "audio":
+            response_data["audio_metadata"] = {
+                "transcription_id": processing_result.get("transcription_metadata", {}).get("id"),
+                "audio_duration": processing_result.get("transcription_metadata", {}).get("audio_duration"),
+                "knowledge_base_uploaded": processing_result.get("knowledge_base_result", {}).get("success", False)
+            }
+        
+        return jsonify(response_data), 200
+    
+    except Exception as e:
+        print(f"Chat enquiry error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            "error": "Internal server error",
+            "details": str(e)
+        }), 500
 
 
 if __name__ == "__main__":

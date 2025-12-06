@@ -14,7 +14,6 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
 
 
-
 class PredictionCache:
     """Simple in-memory cache with TTL to prevent duplicate predictions."""
 
@@ -333,7 +332,7 @@ class BidirectionalEnergyPredictionAgent:
         # Find competitor (next higher rank)
         competitor_question = f"""
             From the user table, find the User_ID where Donate_Amount is greater than {user_donate_amount}.
-            Order by Donate_Amount ascending and return only the first User_ID.
+            Order by Donate_Amount ascending and return only the first User_ID in single int.
             If no such user exists, return the text: null
             
             Example SQL: SELECT "User_ID" FROM "user" WHERE "Donate_Amount" > {user_donate_amount} ORDER BY "Donate_Amount" ASC LIMIT 1
@@ -342,7 +341,7 @@ class BidirectionalEnergyPredictionAgent:
         # Find chaser (next lower rank)
         chaser_question = f"""
             From the user table, find the User_ID where Donate_Amount is less than {user_donate_amount}.
-            Order by Donate_Amount descending and return only the first User_ID.
+            Order by Donate_Amount descending and return only the first User_ID in single int.
             If no such user exists, return the text: null
             
             Example SQL: SELECT "User_ID" FROM "user" WHERE "Donate_Amount" < {user_donate_amount} ORDER BY "Donate_Amount" DESC LIMIT 1
@@ -582,8 +581,8 @@ class BidirectionalEnergyPredictionAgent:
         competitor_id = adjacent["competitor_id"]
         chaser_id = adjacent["chaser_id"]
 
-        is_top_ranked = competitor_id is None
-        is_bottom_ranked = chaser_id is None
+        is_top_ranked = False
+        is_bottom_ranked = False
 
         # Get competitor context (offensive target)
         self._update_status("Analyzing competitor data...", 40)
@@ -778,7 +777,7 @@ class BidirectionalEnergyPredictionAgent:
             },
         }
 
-        self._update_status("Prediction complete!", 100)
+        self._update_status("Your results will be shown soon...", 100)
 
         if self.verbose:
             print(f"PREDICTION COMPLETE!")
@@ -828,13 +827,30 @@ class BidirectionalEnergyPredictionAgent:
         self.status_callback = callback
 
         try:
-            # Check cache first (unless force_refresh)
+            # ============================================
+            # 1. FORCE REFRESH: DELETE cache + cancel in-flight
+            # ============================================
+            if force_refresh:
+                if self.verbose:
+                    print(f"[Force Refresh] Clearing cache + in-flight for {user_id}")
+
+                # Remove cached data
+                if user_id in self.prediction_cache.cache:
+                    del self.prediction_cache.cache[user_id]
+
+                # Remove in-flight lock
+                if user_id in self.in_flight:
+                    del self.in_flight[user_id]
+
+            # ============================================
+            # 2. Normal cache load (only when NOT force)
+            # ============================================
             if not force_refresh:
                 cached_result = self.prediction_cache.get(user_id)
                 if cached_result is not None:
                     if self.verbose:
                         print(f" Using cached prediction for user {user_id}")
-                    # Send completion status for cached results
+
                     if self.status_callback:
                         self.status_callback(
                             {
@@ -845,7 +861,9 @@ class BidirectionalEnergyPredictionAgent:
                         )
                     return cached_result
 
-            # Check if prediction is already in progress
+            # ============================================
+            # 3. If prediction already running
+            # ============================================
             if user_id in self.in_flight:
                 if self.verbose:
                     print(f"Waiting for in-flight prediction for user {user_id}...")
@@ -853,13 +871,17 @@ class BidirectionalEnergyPredictionAgent:
                 while user_id in self.in_flight and (time.time() - start_wait) < 30:
                     time.sleep(0.1)
 
-                cached_result = self.prediction_cache.get(user_id)
-                if cached_result is not None:
-                    if self.verbose:
-                        print(f"In-flight prediction completed, using result")
-                    return cached_result
+                # Only use cached result if NOT force refresh
+                if not force_refresh:
+                    cached_result = self.prediction_cache.get(user_id)
+                    if cached_result is not None:
+                        if self.verbose:
+                            print("In-flight prediction finished, using cached result")
+                        return cached_result
 
-            # Mark this prediction as in-flight
+            # ============================================
+            # 4. Mark new prediction as running
+            # ============================================
             self.in_flight[user_id] = time.time()
 
             try:
@@ -924,7 +946,9 @@ def create_prediction_agent_from_env(
     )
 
 
-def safe_extract(result: Union[Dict[str, Any], str], default_user_id: str = None) -> Dict[str, Any]:
+def safe_extract(
+    result: Union[Dict[str, Any], str], default_user_id: str = None
+) -> Dict[str, Any]:
     """
     Safely extract data from SQL agent result.
 
@@ -954,7 +978,11 @@ def safe_extract(result: Union[Dict[str, Any], str], default_user_id: str = None
             parsed = literal_eval(data)
             if isinstance(parsed, list) and len(parsed) > 0:
                 first = parsed[0]
-                if isinstance(first, tuple) and len(first) > 0 and isinstance(first[0], dict):
+                if (
+                    isinstance(first, tuple)
+                    and len(first) > 0
+                    and isinstance(first[0], dict)
+                ):
                     return first[0]
                 elif isinstance(first, dict):
                     return first

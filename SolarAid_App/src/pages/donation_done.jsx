@@ -27,6 +27,7 @@ export default function DonationComplete() {
         const res = await fetch("http://127.0.0.1:5000/api/thankyou");
         const data = await res.json();
         setImpactMessage(data.message);
+        localStorage.setItem("force_predict_refresh", "yes");
       } catch {
         setImpactMessage("Thank you! Your donation is making a real impact.");
       }

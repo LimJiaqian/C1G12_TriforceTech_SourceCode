@@ -15,14 +15,14 @@ def get_area_data():
         result = supabase.table("area").select("*").execute()
         return result.data if result.data else []
     except Exception as e:
-        print("❌ Error fetching Supabase area table:", e)
+        print("Error fetching Supabase area table:", e)
         return []
 
 
 def get_top5_energy_need():
     """Call SEA-LION AI and enrich output with Area + District from Supabase."""
     
-    # 🔵 Step 1: AI System prompt
+    # Step 1: AI System prompt
     system_prompt = """
     You are an Energy Need Prioritization AI.
 
@@ -69,7 +69,7 @@ def get_top5_energy_need():
         "Content-Type": "application/json",
     }
 
-    # 🔵 Step 2: AI request (with fallback)
+    # Step 2: AI request (with fallback)
     try:
         response = requests.post(URL, json=payload, headers=headers, timeout=25)
         result = response.json()
@@ -80,13 +80,13 @@ def get_top5_energy_need():
         ai_list = json.loads(clean)
 
     except Exception as e:
-        print("⚠️ AI error:", e)
+        print(" AI error:", e)
         return get_fallback_top5()
 
-    # 🔵 Step 3: Fetch Supabase reference table
+    #  Step 3: Fetch Supabase reference table
     area_table = get_area_data()
 
-    # 🔵 Step 4: Enrich AI output with “Area” and “District”
+    #  Step 4: Enrich AI output with “Area” and “District”
     enriched = []
     for item in ai_list:
         match = next(

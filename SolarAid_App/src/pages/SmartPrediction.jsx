@@ -267,7 +267,7 @@ export default function SmartPrediction({ myUser, analysis: propAnalysis, predic
       // Keep progress at 100% during transition
       setLocalProgress(100);
 
-      // Wait 800ms before showing analysis (let progress bar complete)
+      // Wait 500ms before showing analysis (let progress bar complete)
       const analysisTimer = setTimeout(() => {
         setAnalysis(propAnalysis);
 
@@ -280,7 +280,7 @@ export default function SmartPrediction({ myUser, analysis: propAnalysis, predic
         }
 
         return () => clearTimeout(fadeTimer);
-      }, 800);
+      }, 500);
 
 
       return () => clearTimeout(analysisTimer);

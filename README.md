@@ -76,11 +76,11 @@ Considers:
 
 2. **Future Donation Prediction (Cloudflare Workers AI)**
 Provides:
-- Personalized catch-up strategy and Defense strategy
+- Personalized catch-up strategy and defense strategy
 Considers:
 - Weather seasonality
 - Holidays 
-- User Loation
+- User location
 - User’s historical donation pattern
 
 3. **Location-Based Donation Targeting (Sealion)**
@@ -138,6 +138,7 @@ SDG7_Affordable_and_Clean_Energy_TriforceTech/
 │   │   │   ├── Dashboard.jsx
 │   │   │   ├── donation_done.jsx
 │   │   │   ├── donation.jsx
+│   │   │   ├── DonationHistory.jsx
 │   │   │   ├── Leaderboard.jsx
 │   │   │   ├── login.jsx
 │   │   │   ├── Overview.jsx
@@ -146,41 +147,58 @@ SDG7_Affordable_and_Clean_Energy_TriforceTech/
 │   │   │   └── LandingPage.jsx
 │   │   ├── components/
 │   │   │   └── Globe3D.jsx
+│   │   │   └── PremiumCertificate.jsx
 │   │   ├── assets/
 │   │   │   └── logo.png
+│   │   ├── config/
+│   │   │   └── jamAI.config.js
+│   │   ├── servives/
+│   │   │   └── jamAI.service.js
+│   │   │   └── voiceChat.integration.example.js
 │   │   └── App.jsx
+│   │   └── App.css
+│   │   └── index.css
+│   │   └── main.jsx
 │   ├── backend/
 │   │   ├── server.py
 │   │   ├── sealion_ai/
 │   │   │   ├── __init__.py
 │   │   │   ├── area_detection.py
-│   │   │   ├── certificate.py
+│   │   │   ├── certificate_generator.py
 │   │   │   └── thanks_ai.py
 │   │   ├── cloudflare_workers_ai/
-│   │   │   ├── __init__.py
 │   │   │   ├── optimized_prediction_agent.py
 │   │   │   └── optimized_research_agent.py
 │   │   │   └── sql_agent.py
-│   │   ├── dataset/
-│   │   │   ├── donations.csv
-│   │   │   └── donors.csv
+│   │   ├── database/
+│   │   │   └──  supabase.py
+│   │   ├── jamai_ai/
+│   │   │   ├── __init__.py
+│   │   │   ├── architecture.py
+│   │   │   ├── audio_bridge.py
+│   │   │   ├── readme.md
+│   │   │   └── test_setup.py
+│   │   ├── utils/
+│   │   │   └── impactCalculator.py
 │   │   └── __pycache__/
+│   ├── node_modules/
+│   ├── package.json
+│   ├── index.html
+│   ├── vite.config.js
+│   ├── .env.example
+│   ├── eslint.config.js
+│   ├── FLOW_DIAGRAM.md
+│   ├── package-lock.json
+│   ├── package.json
+│   ├── postcss.config.cjs
+│   ├── tailwind.config.cjs
+│   ├── test-jamaibase.js
+│   └── vite.config.js
 │   ├── public/
 │   │   ├── Idea.png
 │   │   └── tech_stack.png
-│   ├── node_modules/
-│   ├── package.json
-│   ├── requirements.txt
-│   ├── index.html
-│   └── vite.config.js
-├── area_need_detection/
-│   ├── app.py
-│   ├── rag_chatbot.py
-│   ├── .env
-│   └── requirements.txt
-├── public/
-│   ├── Idea.png
-│   └── tech_stack.png
+├── requirements.txt
+├── package-lock.json
 └── README.md
 ```
 

@@ -43,32 +43,30 @@ export default function Leaderboard({ topUsers, myUser, personAhead }) {
             </div>
           ))}
 
-          {/* Show "..." and person ahead only if myUser is NOT in top 5 */}
+          {/* If USER is NOT top 5 → show both sections below */}
           {!topUsers.slice(0, 5).some(u => u.User_ID === myUser?.User_ID) && (
-            <>{myUser && !(myUser.Rank === 6 || myUser.Rank === 7) && (
-              <p className="text-center text-gray-400 font-semibold">
-                ...
-              </p>
-            )}
+            <>
 
-              {/* Person Ahead */}
-              {personAhead && (
-                <div className="flex items-center justify-between bg-purple-100 rounded-lg p-3">
-                  <div className="flex items-center gap-3">
-                    <img
-                      src={personAhead.User_Img}
-                      className="w-12 h-12 rounded-full object-cover"
-                    />
-                    <div>
-                      <p className="font-semibold">{personAhead.User_Name}</p>
-                      <p className="text-sm text-gray-500">{personAhead.Donate_Amount} kWh</p>
+              {/* Show PERSON AHEAD only if they exist AND they are also NOT top 5 */}
+              {personAhead &&
+                !topUsers.slice(0, 5).some(u => u.User_ID === personAhead.User_ID) && (
+                  <div className="flex items-center justify-between bg-purple-100 rounded-lg p-3">
+                    <div className="flex items-center gap-3">
+                      <img
+                        src={personAhead.User_Img}
+                        className="w-12 h-12 rounded-full object-cover"
+                      />
+                      <div>
+                        <p className="font-semibold">{personAhead.User_Name}</p>
+                        <p className="text-sm text-gray-500">{personAhead.Donate_Amount} kWh</p>
+                      </div>
                     </div>
+                    <span className="font-bold text-purple-600">#{myUser.Rank - 1}</span>
                   </div>
-                  <span className="font-bold text-purple-600">#{myUser.Rank - 1}</span>
-                </div>
-              )}
+                )
+              }
 
-              {/* YOU */}
+              {/* Show USER (always, since user is NOT top 5) */}
               {myUser && (
                 <div className="flex items-center justify-between bg-purple-200 rounded-lg p-3">
                   <div className="flex items-center gap-3">
@@ -87,6 +85,7 @@ export default function Leaderboard({ topUsers, myUser, personAhead }) {
               )}
             </>
           )}
+
         </div>
 
         {/* Encourage */}

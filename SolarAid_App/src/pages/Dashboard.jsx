@@ -22,31 +22,45 @@ export default function Dashboard() {
   const [predictionStatus, setPredictionStatus] = useState('');
   const [predictionProgress, setPredictionProgress] = useState(0);
 
+  const shouldForce = localStorage.getItem("force_predict_refresh") === "yes";
+
   useEffect(() => {
     if (leftRef.current) setLeftHeight(leftRef.current.offsetHeight);
   }, []);
 
-  // Load smart prediction data from backend API
-  // Load smart prediction data from backend API
   useEffect(() => {
+    let eventSource;
+
     async function fetchAIPrediction() {
       if (!myUser) return;
 
       try {
-        const eventSource = new EventSource(
-          `http://127.0.0.1:5000/api/predict/${myUser.User_ID}`
-        );
+        // Clear state FIRST
+        if (shouldForce) {
+          setAnalysis(null);
+          setPredictionStatus('Regenerating prediction...');
+          setPredictionProgress(0);
+        }
+
+        // Create EventSource
+        if (!shouldForce) {
+          eventSource = new EventSource(
+            `http://127.0.0.1:5000/api/predict/${myUser.User_ID}`
+          );
+        } else {
+          eventSource = new EventSource(
+            `http://127.0.0.1:5000/api/predict/${myUser.User_ID}?force_refresh=true`
+          );
+        }
 
         eventSource.onmessage = (event) => {
           const data = JSON.parse(event.data);
 
-          // Update status and progress
           if (data.message) {
             setPredictionStatus(data.message);
             setPredictionProgress(data.progress || 0);
           }
 
-          // Handle completion
           if (data.complete) {
             if (data.error) {
               console.error('Prediction error:', data.error);
@@ -55,6 +69,10 @@ export default function Dashboard() {
               setAnalysis(data.result);
               setPredictionStatus('Complete');
               setPredictionProgress(100);
+
+              if (shouldForce) {
+                localStorage.removeItem("force_predict_refresh");
+              }
             }
             eventSource.close();
           }
@@ -73,7 +91,13 @@ export default function Dashboard() {
     }
 
     fetchAIPrediction();
-  }, [myUser]);
+
+    return () => {
+      if (eventSource) {
+        eventSource.close();
+      }
+    };
+  }, [myUser, shouldForce]);
 
   // Load electricity data from backend API
   useEffect(() => {
@@ -132,6 +156,22 @@ export default function Dashboard() {
 
     fetchAll();
   }, []);
+
+  useEffect(() => {
+    const handler = (event) => {
+      if (event.persisted) {
+        // Page restored from BFCache -> force reload if needed
+        if (localStorage.getItem("force_predict_refresh") === "yes") {
+          window.location.reload();
+          console.log("Reload")
+        }
+      }
+    };
+
+    window.addEventListener("pageshow", handler);
+    return () => window.removeEventListener("pageshow", handler);
+  }, []);
+
 
   return (
 
@@ -206,7 +246,7 @@ export default function Dashboard() {
 
         <div style={{ marginTop: "2rem" }}>
           <div className="mb-20">
-            <SmartPrediction myUser={myUser} analysis={analysis} remaining={remaining} predictionStatus={predictionStatus} predictionProgress={predictionProgress}/>
+            <SmartPrediction myUser={myUser} analysis={analysis} remaining={remaining} predictionStatus={predictionStatus} predictionProgress={predictionProgress} />
           </div>
         </div>
       </div>

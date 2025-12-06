@@ -59,7 +59,7 @@ export default function Overview({ myUser, analysis, capacity, monthlyDonation, 
         setDonateAmount(Number(analysis.catchUp.minRequired));
         setAISuggestion(Number(analysis.catchUp.minRequired));
       } else {
-        setDonateAmount(Number(analysis.catchUp.minRequired));
+        setDonateAmount(remaining);
         setAISuggestion(Number(analysis.catchUp.minRequired));
       }
 
