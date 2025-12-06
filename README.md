@@ -107,9 +107,8 @@ RAG Source Files:
 - NEM_Malaysia_Rules.pdf	Legal compliance under NEM 3.0
 - Impact_Formulas.txt	Convert kWh → CO₂ → impact stories
 
-![SolarAid Banner](SolarAid_App/public/tech_stack.png)
-
 # Tech Stack
+![SolarAid Banner](SolarAid_App/public/tech_stack.png)
 ## Frontend
 - React + Vite
 - TailwindCSS
