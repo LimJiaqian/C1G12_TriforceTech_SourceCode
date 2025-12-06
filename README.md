@@ -194,9 +194,9 @@ SDG7_Affordable_and_Clean_Energy_TriforceTech/
 │   ├── tailwind.config.cjs
 │   ├── test-jamaibase.js
 │   └── vite.config.js
-│   ├── public/
-│   │   ├── Idea.png
-│   │   └── tech_stack.png
+├── public/
+│   ├── Idea.png
+│   └── tech_stack.png
 ├── requirements.txt
 ├── package-lock.json
 └── README.md
