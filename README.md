@@ -108,7 +108,7 @@ RAG Source Files:
 - Impact_Formulas.txt	Convert kWh → CO₂ → impact stories
 
 # Tech Stack
-![SolarAid Banner](SolarAid_App/public/tech_stack.png)
+![Tech Stack](public/tech_stack_new.png)
 ## Frontend
 - React + Vite
 - TailwindCSS
@@ -195,16 +195,22 @@ SDG7_Affordable_and_Clean_Energy_TriforceTech/
 │   └── vite.config.js
 ├── public/
 │   ├── Idea.png
-│   └── tech_stack.png
+│   └── tech_stack_new.png
 ├── requirements.txt
 ├── package-lock.json
 └── README.md
 ```
 
 # Getting Start
+## Virtual Environment
+```
+python3.13 --version (output: Python 3.13.x)
+python3.13 -m venv venv
+source venv/bin/activate
+```
 ## Backend
 ```
-cd backend
+cd SolarAid_App
 pip install -r requirements.txt
 
 cd SolarAid_App
@@ -226,5 +232,5 @@ npm run dev
   - #6C00FF
 - **Style**: Rounded corners, shadows, clean spacing
 
-** Malaysia is rich in sunlight and kindness. ** 
-** SolarAid turns both into clean energy, sustainable charity, and community empowerment. **
+###### **Malaysia is rich in sunlight and kindness.** 
+###### **SolarAid turns both into clean energy, sustainable charity, and community empowerment.**
